@@ -1,0 +1,34 @@
+# ref: https://docs.astral.sh/ruff/settings/
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".git",
+    "__pycache__",
+    "__pypackages__",
+    ".venv*",
+    ".vscode",
+    "*.sqlite3"
+]
+
+# requires-python 3.12
+target-version = "py312"
+
+[lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+# ref: https://docs.astral.sh/ruff/rules/
+select = [
+    "E",    # pycodestyle error
+    "F",    # Pyflakes
+    "W",    # pycodestyle warning
+    "I",    # isort
+    "DJ",   # flake8-django
+    "B",    # flake8-bugbear
+    "N"     # pep8-naming
+]
+ignore = ["E501"]
+fixable = ["E4", "E7", "E9", "F", "I"]
+
+[format]
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "lf"
