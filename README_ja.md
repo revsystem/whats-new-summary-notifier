@@ -15,7 +15,7 @@
   - そのような環境がない場合は、AWS Cloud9 を使用することも可能です。[操作環境の準備 (AWS Cloud9)](DEPLOY_ja.md) をご参照ください。
 - aws-cdk
   - `npm install -g aws-cdk` でインストール可能です。詳しくは [AWS ドキュメント](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html)を参考にしてください。
-- Docker 
+- Docker
   - [`aws-lambda-python-alpha`](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-lambda-python-alpha-readme.html) コンストラクトで Lambda をビルドするために Docker が必要です。詳しくは [Docker ドキュメント](https://docs.docker.com/engine/install/)を参考にしてください。
 
 ## デプロイ手順
@@ -63,12 +63,12 @@ aws ssm put-parameter \
 cdk bootstrap
 ```
 
-**エラーがないことを確認** 
+**エラーがないことを確認**
 ```
 cdk synth
 ```
 
-**デプロイの実行** 
+**デプロイの実行**
 
 ```
 cdk deploy

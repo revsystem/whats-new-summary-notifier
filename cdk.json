@@ -18,7 +18,7 @@
     },
     "context": {
         "modelRegion": "us-east-1",
-        "modelId": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+        "modelId": "amazon.nova-micro-v1:0",
         "summarizers": {
             "AwsSolutionsArchitectEnglish": {
                 "outputLanguage": "English.",
@@ -30,7 +30,7 @@
             },
             "Formula1ProfessionalJapanese": {
                 "outputLanguage": "Japanese. Each sentence must be output in polite and formal desu/masu style",
-                "persona": "You are a Formula 1 journalist. And you are a fan of Formula 1."
+                "persona": "You are a Formula 1 journalist. And you are a fan of Formula 1"
             }
         },
         "notifiers": {

@@ -1,21 +1,20 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-import boto3
 import json
 import os
+import re
 import time
 import traceback
-
 import urllib.parse
 import urllib.request
-
 from typing import Optional
-from botocore.config import Config
+
+import boto3
 import cloudscraper
-from bs4 import BeautifulSoup
+from botocore.config import Config
 from botocore.exceptions import ClientError
-import re
+from bs4 import BeautifulSoup
 
 MODEL_ID = os.environ["MODEL_ID"]
 MODEL_REGION = os.environ["MODEL_REGION"]
@@ -146,9 +145,8 @@ def summarize_blog(
         assumed_role=os.environ.get("BEDROCK_ASSUME_ROLE", None),
         region=MODEL_REGION,
     )
-    beginning_word = "<output>"
+
     prompt_data = f"""
-<input>{blog_body}</input>
 <persona>You are a professional {persona}. </persona>
 <instruction>
 Describe a new update in <input></input> tags in bullet points to describe "What is the new feature?", and "Who is this update good for". The description shall be output in <thinking></thinking> tags, and each thinking sentence must start with the bullet point "- " and end with "\n".
@@ -163,44 +161,54 @@ Follow the instructions.
 
     max_tokens = 4096
 
+    system_prompts = [
+        {
+            "text": prompt_data
+        }
+    ]
+
     user_message = {
         "role": "user",
         "content": [
             {
-                "type": "text",
-                "text": prompt_data,
+                "text": f"<input>{blog_body}</input>"
             }
         ],
     }
 
     assistant_message = {
         "role": "assistant",
-        "content": [{"type": "text", "text": f"{beginning_word}"}],
+        "content": [
+            {
+                "text": prompt_data
+            }
+        ],
     }
 
     messages = [user_message, assistant_message]
 
-    body = json.dumps(
-        {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": max_tokens,
-            "messages": messages,
-            "temperature": 0.5,
-            "top_p": 1,
-            "top_k": 250,
+    inference_config = {
+        "maxTokens": max_tokens,
+        "temperature": 0.5,
+        "topP": 1,
+    }
+
+    additional_model_request_fields = {
+        "inferenceConfig": {
+            "topK": 40
         }
-    )
-
-    accept = "application/json"
-    contentType = "application/json"
-    outputText = "\n"
-
+    }
     try:
-        response = boto3_bedrock.invoke_model(
-            body=body, modelId=MODEL_ID, accept=accept, contentType=contentType
+        response = boto3_bedrock.converse(
+            system=system_prompts,
+            messages=messages,
+            modelId=MODEL_ID,
+            inferenceConfig=inference_config,
+            additionalModelRequestFields=additional_model_request_fields
         )
-        response_body = json.loads(response.get("body").read().decode())
-        outputText = beginning_word + response_body.get("content")[0]["text"]
+
+        outputText = response["output"]["message"]["content"][0]["text"]
+
         print(outputText)
         # extract contant inside <summary> tag
         summary = re.findall(r"<summary>([\s\S]*?)</summary>", outputText)[0]
@@ -209,9 +217,10 @@ Follow the instructions.
     except ClientError as error:
         if error.response["Error"]["Code"] == "AccessDeniedException":
             print(
-                f"\x1b[41m{error.response['Error']['Message']}\
-            \nTo troubeshoot this issue please refer to the following resources.\ \nhttps://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_access-denied.html\
-            \nhttps://docs.aws.amazon.com/bedrock/latest/userguide/security-iam.html\x1b[0m\n"
+                f"{error.response['Error']['Message']}"
+                "\nTo troubeshoot this issue please refer to the following resources:\n"
+                "https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_access-denied.html\n"
+                "https://docs.aws.amazon.com/bedrock/latest/userguide/security-iam.html\n"
             )
         else:
             raise error
@@ -427,5 +436,5 @@ def handler(event, context):
         new_data = get_new_entries(event["Records"])
         if 0 < len(new_data):
             push_notification(new_data)
-    except Exception as e:
+    except Exception:
         print(traceback.print_exc())
