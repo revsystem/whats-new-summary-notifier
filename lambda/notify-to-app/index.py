@@ -167,25 +167,16 @@ Follow the instructions.
         }
     ]
 
-    user_message = {
-        "role": "user",
-        "content": [
-            {
-                "text": f"<input>{blog_body}</input>"
-            }
-        ],
-    }
-
-    assistant_message = {
-        "role": "assistant",
-        "content": [
-            {
-                "text": prompt_data
-            }
-        ],
-    }
-
-    messages = [user_message, assistant_message]
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "text": f"<input>{blog_body}</input>"
+                }
+            ]
+        }
+    ]
 
     inference_config = {
         "maxTokens": max_tokens,
@@ -195,7 +186,7 @@ Follow the instructions.
 
     additional_model_request_fields = {
         "inferenceConfig": {
-            "topK": 40
+            "topK": 250
         }
     }
     try:

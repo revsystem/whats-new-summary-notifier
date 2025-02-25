@@ -1,0 +1,446 @@
+diff --git a/README_ja.md b/README_ja.md
+index 62de496..2def053 100644
+--- a/README_ja.md
++++ b/README_ja.md
+@@ -15,7 +15,7 @@
+   - そのような環境がない場合は、AWS Cloud9 を使用することも可能です。[操作環境の準備 (AWS Cloud9)](DEPLOY_ja.md) をご参照ください。
+ - aws-cdk
+   - `npm install -g aws-cdk` でインストール可能です。詳しくは [AWS ドキュメント](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html)を参考にしてください。
+-- Docker 
++- Docker
+   - [`aws-lambda-python-alpha`](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-lambda-python-alpha-readme.html) コンストラクトで Lambda をビルドするために Docker が必要です。詳しくは [Docker ドキュメント](https://docs.docker.com/engine/install/)を参考にしてください。
+ 
+ ## デプロイ手順
+@@ -63,12 +63,12 @@ aws ssm put-parameter \
+ cdk bootstrap
+ ```
+ 
+-**エラーがないことを確認** 
++**エラーがないことを確認**
+ ```
+ cdk synth
+ ```
+ 
+-**デプロイの実行** 
++**デプロイの実行**
+ 
+ ```
+ cdk deploy
+diff --git a/cdk.json b/cdk.json
+index 46b5b22..e6c425e 100644
+--- a/cdk.json
++++ b/cdk.json
+@@ -18,7 +18,7 @@
+     },
+     "context": {
+         "modelRegion": "us-east-1",
+-        "modelId": "anthropic.claude-3-5-sonnet-20240620-v1:0",
++        "modelId": "amazon.nova-micro-v1:0",
+         "summarizers": {
+             "AwsSolutionsArchitectEnglish": {
+                 "outputLanguage": "English.",
+@@ -30,7 +30,7 @@
+             },
+             "Formula1ProfessionalJapanese": {
+                 "outputLanguage": "Japanese. Each sentence must be output in polite and formal desu/masu style",
+-                "persona": "You are a Formula 1 journalist. And you are a fan of Formula 1."
++                "persona": "You are a Formula 1 journalist. And you are a fan of Formula 1"
+             }
+         },
+         "notifiers": {
+diff --git a/lambda/notify-to-app/index.py b/lambda/notify-to-app/index.py
+index c1a04e3..7db2b36 100644
+--- a/lambda/notify-to-app/index.py
++++ b/lambda/notify-to-app/index.py
+@@ -1,21 +1,20 @@
+ # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ # SPDX-License-Identifier: MIT-0
+ 
+-import boto3
+ import json
+ import os
++import re
+ import time
+ import traceback
+-
+ import urllib.parse
+ import urllib.request
+-
+ from typing import Optional
+-from botocore.config import Config
++
++import boto3
+ import cloudscraper
+-from bs4 import BeautifulSoup
++from botocore.config import Config
+ from botocore.exceptions import ClientError
+-import re
++from bs4 import BeautifulSoup
+ 
+ MODEL_ID = os.environ["MODEL_ID"]
+ MODEL_REGION = os.environ["MODEL_REGION"]
+@@ -146,9 +145,8 @@ def summarize_blog(
+         assumed_role=os.environ.get("BEDROCK_ASSUME_ROLE", None),
+         region=MODEL_REGION,
+     )
+-    beginning_word = "<output>"
++
+     prompt_data = f"""
+-<input>{blog_body}</input>
+ <persona>You are a professional {persona}. </persona>
+ <instruction>
+ Describe a new update in <input></input> tags in bullet points to describe "What is the new feature?", and "Who is this update good for". The description shall be output in <thinking></thinking> tags, and each thinking sentence must start with the bullet point "- " and end with "\n".
+@@ -163,44 +161,45 @@ Follow the instructions.
+ 
+     max_tokens = 4096
+ 
+-    user_message = {
+-        "role": "user",
+-        "content": [
+-            {
+-                "type": "text",
+-                "text": prompt_data,
+-            }
+-        ],
+-    }
+-
+-    assistant_message = {
+-        "role": "assistant",
+-        "content": [{"type": "text", "text": f"{beginning_word}"}],
+-    }
+-
+-    messages = [user_message, assistant_message]
++    system_prompts = [
++        {
++            "text": prompt_data
++        }
++    ]
+ 
+-    body = json.dumps(
++    messages = [
+         {
+-            "anthropic_version": "bedrock-2023-05-31",
+-            "max_tokens": max_tokens,
+-            "messages": messages,
+-            "temperature": 0.5,
+-            "top_p": 1,
+-            "top_k": 250,
++            "role": "user",
++            "content": [
++                {
++                    "text": f"<input>{blog_body}</input>"
++                }
++            ]
+         }
+-    )
++    ]
+ 
+-    accept = "application/json"
+-    contentType = "application/json"
+-    outputText = "\n"
++    inference_config = {
++        "maxTokens": max_tokens,
++        "temperature": 0.5,
++        "topP": 1,
++    }
+ 
++    additional_model_request_fields = {
++        "inferenceConfig": {
++            "topK": 250
++        }
++    }
+     try:
+-        response = boto3_bedrock.invoke_model(
+-            body=body, modelId=MODEL_ID, accept=accept, contentType=contentType
++        response = boto3_bedrock.converse(
++            system=system_prompts,
++            messages=messages,
++            modelId=MODEL_ID,
++            inferenceConfig=inference_config,
++            additionalModelRequestFields=additional_model_request_fields
+         )
+-        response_body = json.loads(response.get("body").read().decode())
+-        outputText = beginning_word + response_body.get("content")[0]["text"]
++
++        outputText = response["output"]["message"]["content"][0]["text"]
++
+         print(outputText)
+         # extract contant inside <summary> tag
+         summary = re.findall(r"<summary>([\s\S]*?)</summary>", outputText)[0]
+@@ -209,9 +208,10 @@ Follow the instructions.
+     except ClientError as error:
+         if error.response["Error"]["Code"] == "AccessDeniedException":
+             print(
+-                f"\x1b[41m{error.response['Error']['Message']}\
+-            \nTo troubeshoot this issue please refer to the following resources.\ \nhttps://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_access-denied.html\
+-            \nhttps://docs.aws.amazon.com/bedrock/latest/userguide/security-iam.html\x1b[0m\n"
++                f"{error.response['Error']['Message']}"
++                "\nTo troubeshoot this issue please refer to the following resources:\n"
++                "https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_access-denied.html\n"
++                "https://docs.aws.amazon.com/bedrock/latest/userguide/security-iam.html\n"
+             )
+         else:
+             raise error
+@@ -427,5 +427,5 @@ def handler(event, context):
+         new_data = get_new_entries(event["Records"])
+         if 0 < len(new_data):
+             push_notification(new_data)
+-    except Exception as e:
++    except Exception:
+         print(traceback.print_exc())
+diff --git a/lambda/notify-to-app/requirements.txt b/lambda/notify-to-app/requirements.txt
+index 15f4914..8497ef4 100644
+--- a/lambda/notify-to-app/requirements.txt
++++ b/lambda/notify-to-app/requirements.txt
+@@ -1,3 +1,4 @@
+ beautifulsoup4
+-boto3 >= 1.34.64
+-cloudscraper
+\ No newline at end of file
++boto3
++cloudscraper
++urllib3 <2.0.0,>=1.26.0
+\ No newline at end of file
+diff --git a/package-lock.json b/package-lock.json
+index 044418b..d2d8bae 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -9,7 +9,7 @@
+       "version": "0.1.0",
+       "dependencies": {
+         "@aws-cdk/aws-lambda-python-alpha": "^2.141.0-alpha.0",
+-        "aws-cdk-lib": "^2.141.0",
++        "aws-cdk-lib": "^2.176.0",
+         "cdk-nag": "^2.28.113",
+         "constructs": "^10.0.0",
+         "source-map-support": "^0.5.21"
+@@ -45,19 +45,22 @@
+       }
+     },
+     "node_modules/@aws-cdk/asset-awscli-v1": {
+-      "version": "2.2.202",
+-      "resolved": "https://registry.npmjs.org/@aws-cdk/asset-awscli-v1/-/asset-awscli-v1-2.2.202.tgz",
+-      "integrity": "sha512-JqlF0D4+EVugnG5dAsNZMqhu3HW7ehOXm5SDMxMbXNDMdsF0pxtQKNHRl52z1U9igsHmaFpUgSGjbhAJ+0JONg=="
++      "version": "2.2.219",
++      "resolved": "https://registry.npmjs.org/@aws-cdk/asset-awscli-v1/-/asset-awscli-v1-2.2.219.tgz",
++      "integrity": "sha512-pwkEucYvK3MjoVShBnCWMLKk8/nAhElEM7OPcen/hSlsYoPRkZeZbPDM2XmTjvfUKWD5TQmobs39iBSrgbb1gg==",
++      "license": "Apache-2.0"
+     },
+     "node_modules/@aws-cdk/asset-kubectl-v20": {
+-      "version": "2.1.2",
+-      "resolved": "https://registry.npmjs.org/@aws-cdk/asset-kubectl-v20/-/asset-kubectl-v20-2.1.2.tgz",
+-      "integrity": "sha512-3M2tELJOxQv0apCIiuKQ4pAbncz9GuLwnKFqxifWfe77wuMxyTRPmxssYHs42ePqzap1LT6GDcPygGs+hHstLg=="
++      "version": "2.1.3",
++      "resolved": "https://registry.npmjs.org/@aws-cdk/asset-kubectl-v20/-/asset-kubectl-v20-2.1.3.tgz",
++      "integrity": "sha512-cDG1w3ieM6eOT9mTefRuTypk95+oyD7P5X/wRltwmYxU7nZc3+076YEVS6vrjDKr3ADYbfn0lDKpfB1FBtO9CQ==",
++      "license": "Apache-2.0"
+     },
+     "node_modules/@aws-cdk/asset-node-proxy-agent-v6": {
+-      "version": "2.0.3",
+-      "resolved": "https://registry.npmjs.org/@aws-cdk/asset-node-proxy-agent-v6/-/asset-node-proxy-agent-v6-2.0.3.tgz",
+-      "integrity": "sha512-twhuEG+JPOYCYPx/xy5uH2+VUsIEhPTzDY0F1KuB+ocjWWB/KEDiOVL19nHvbPCB6fhWnkykXEMJ4HHcKvjtvg=="
++      "version": "2.1.0",
++      "resolved": "https://registry.npmjs.org/@aws-cdk/asset-node-proxy-agent-v6/-/asset-node-proxy-agent-v6-2.1.0.tgz",
++      "integrity": "sha512-7bY3J8GCVxLupn/kNmpPc5VJz8grx+4RKfnnJiO1LG+uxkZfANZG3RMHhE+qQxxwkyQ9/MfPtTpf748UhR425A==",
++      "license": "Apache-2.0"
+     },
+     "node_modules/@aws-cdk/aws-lambda-python-alpha": {
+       "version": "2.141.0-alpha.0",
+@@ -71,6 +74,39 @@
+         "constructs": "^10.0.0"
+       }
+     },
++    "node_modules/@aws-cdk/cloud-assembly-schema": {
++      "version": "39.1.47",
++      "resolved": "https://registry.npmjs.org/@aws-cdk/cloud-assembly-schema/-/cloud-assembly-schema-39.1.47.tgz",
++      "integrity": "sha512-gn0eqDJYQu/StmvWXoy3QOYOu9tUMYnoViBqgc9cuAXwkRxD4l1TBsOpN2qPzPEXlrfRjJJ5GRh4wI2s/n0Z7g==",
++      "bundleDependencies": [
++        "jsonschema",
++        "semver"
++      ],
++      "license": "Apache-2.0",
++      "dependencies": {
++        "jsonschema": "~1.4.1",
++        "semver": "^7.6.3"
++      }
++    },
++    "node_modules/@aws-cdk/cloud-assembly-schema/node_modules/jsonschema": {
++      "version": "1.4.1",
++      "inBundle": true,
++      "license": "MIT",
++      "engines": {
++        "node": "*"
++      }
++    },
++    "node_modules/@aws-cdk/cloud-assembly-schema/node_modules/semver": {
++      "version": "7.6.3",
++      "inBundle": true,
++      "license": "ISC",
++      "bin": {
++        "semver": "bin/semver.js"
++      },
++      "engines": {
++        "node": ">=10"
++      }
++    },
+     "node_modules/@babel/code-frame": {
+       "version": "7.24.2",
+       "resolved": "https://registry.npmjs.org/@babel/code-frame/-/code-frame-7.24.2.tgz",
+@@ -1658,9 +1694,9 @@
+       }
+     },
+     "node_modules/aws-cdk-lib": {
+-      "version": "2.141.0",
+-      "resolved": "https://registry.npmjs.org/aws-cdk-lib/-/aws-cdk-lib-2.141.0.tgz",
+-      "integrity": "sha512-xda56Lfwpdqg9MssnFdXrAKTmeeNjfrfFCaWwqGqToG6cfGY2W+6wyyoObX60/MeZGhhs3Lhdb/K94ulLJ4X/A==",
++      "version": "2.176.0",
++      "resolved": "https://registry.npmjs.org/aws-cdk-lib/-/aws-cdk-lib-2.176.0.tgz",
++      "integrity": "sha512-6Gs2kBaq4elQ4fNAOiCgbD9oOLx/heb/Lp4OVE6Uf7FulYW0DikWJXxR5GWJslTJ4/sCf3UU91q415fc0bruLg==",
+       "bundleDependencies": [
+         "@balena/dockerignore",
+         "case",
+@@ -1674,19 +1710,21 @@
+         "yaml",
+         "mime-types"
+       ],
++      "license": "Apache-2.0",
+       "dependencies": {
+-        "@aws-cdk/asset-awscli-v1": "^2.2.202",
+-        "@aws-cdk/asset-kubectl-v20": "^2.1.2",
+-        "@aws-cdk/asset-node-proxy-agent-v6": "^2.0.3",
++        "@aws-cdk/asset-awscli-v1": "^2.2.208",
++        "@aws-cdk/asset-kubectl-v20": "^2.1.3",
++        "@aws-cdk/asset-node-proxy-agent-v6": "^2.1.0",
++        "@aws-cdk/cloud-assembly-schema": "^39.0.1",
+         "@balena/dockerignore": "^1.0.2",
+         "case": "1.6.3",
+         "fs-extra": "^11.2.0",
+-        "ignore": "^5.3.1",
++        "ignore": "^5.3.2",
+         "jsonschema": "^1.4.1",
+         "mime-types": "^2.1.35",
+         "minimatch": "^3.1.2",
+         "punycode": "^2.3.1",
+-        "semver": "^7.6.0",
++        "semver": "^7.6.3",
+         "table": "^6.8.2",
+         "yaml": "1.10.2"
+       },
+@@ -1703,14 +1741,14 @@
+       "license": "Apache-2.0"
+     },
+     "node_modules/aws-cdk-lib/node_modules/ajv": {
+-      "version": "8.13.0",
++      "version": "8.17.1",
+       "inBundle": true,
+       "license": "MIT",
+       "dependencies": {
+         "fast-deep-equal": "^3.1.3",
++        "fast-uri": "^3.0.1",
+         "json-schema-traverse": "^1.0.0",
+-        "require-from-string": "^2.0.2",
+-        "uri-js": "^4.4.1"
++        "require-from-string": "^2.0.2"
+       },
+       "funding": {
+         "type": "github",
+@@ -1800,6 +1838,11 @@
+       "inBundle": true,
+       "license": "MIT"
+     },
++    "node_modules/aws-cdk-lib/node_modules/fast-uri": {
++      "version": "3.0.3",
++      "inBundle": true,
++      "license": "BSD-3-Clause"
++    },
+     "node_modules/aws-cdk-lib/node_modules/fs-extra": {
+       "version": "11.2.0",
+       "inBundle": true,
+@@ -1819,7 +1862,7 @@
+       "license": "ISC"
+     },
+     "node_modules/aws-cdk-lib/node_modules/ignore": {
+-      "version": "5.3.1",
++      "version": "5.3.2",
+       "inBundle": true,
+       "license": "MIT",
+       "engines": {
+@@ -1863,17 +1906,6 @@
+       "inBundle": true,
+       "license": "MIT"
+     },
+-    "node_modules/aws-cdk-lib/node_modules/lru-cache": {
+-      "version": "6.0.0",
+-      "inBundle": true,
+-      "license": "ISC",
+-      "dependencies": {
+-        "yallist": "^4.0.0"
+-      },
+-      "engines": {
+-        "node": ">=10"
+-      }
+-    },
+     "node_modules/aws-cdk-lib/node_modules/mime-db": {
+       "version": "1.52.0",
+       "inBundle": true,
+@@ -1921,12 +1953,9 @@
+       }
+     },
+     "node_modules/aws-cdk-lib/node_modules/semver": {
+-      "version": "7.6.0",
++      "version": "7.6.3",
+       "inBundle": true,
+       "license": "ISC",
+-      "dependencies": {
+-        "lru-cache": "^6.0.0"
+-      },
+       "bin": {
+         "semver": "bin/semver.js"
+       },
+@@ -1999,17 +2028,11 @@
+     },
+     "node_modules/aws-cdk-lib/node_modules/uri-js": {
+       "version": "4.4.1",
+-      "inBundle": true,
+       "license": "BSD-2-Clause",
+       "dependencies": {
+         "punycode": "^2.1.0"
+       }
+     },
+-    "node_modules/aws-cdk-lib/node_modules/yallist": {
+-      "version": "4.0.0",
+-      "inBundle": true,
+-      "license": "ISC"
+-    },
+     "node_modules/aws-cdk-lib/node_modules/yaml": {
+       "version": "1.10.2",
+       "inBundle": true,
+@@ -3242,7 +3265,6 @@
+       "version": "5.3.1",
+       "resolved": "https://registry.npmjs.org/ignore/-/ignore-5.3.1.tgz",
+       "integrity": "sha512-5Fytz/IraMjqpwfd34ke28PTVMjZjJG2MPn5t7OE4eUCUNf8BAa7b5WUS9/Qvr6mwOQS7Mk6vdsMno5he+T8Xw==",
+-      "dev": true,
+       "engines": {
+         "node": ">= 4"
+       }
+@@ -4966,7 +4988,6 @@
+       "version": "6.3.1",
+       "resolved": "https://registry.npmjs.org/semver/-/semver-6.3.1.tgz",
+       "integrity": "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==",
+-      "dev": true,
+       "bin": {
+         "semver": "bin/semver.js"
+       }
+diff --git a/package.json b/package.json
+index 111218f..aaaff29 100644
+--- a/package.json
++++ b/package.json
+@@ -25,7 +25,7 @@
+   },
+   "dependencies": {
+     "@aws-cdk/aws-lambda-python-alpha": "^2.141.0-alpha.0",
+-    "aws-cdk-lib": "^2.141.0",
++    "aws-cdk-lib": "^2.176.0",
+     "cdk-nag": "^2.28.113",
+     "constructs": "^10.0.0",
+     "source-map-support": "^0.5.21"
