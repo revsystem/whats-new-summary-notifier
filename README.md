@@ -2,7 +2,7 @@
 
 **[日本語はこちら](README_ja.md)**
 
-**Whats New Summary Notifier** is a sample implementation of a generative AI application that summarizes the content of AWS What's New and other web articles in multiple languages when there is an update, and delivers the summary to Slack or Microsoft Teams.
+**Whats New Summary Notifier** is a sample implementation of a generative AI application that summarizes the content of AWS What's New and other web articles in multiple languages when there is an update, and delivers the summary to Slack.
 
 <p align="center">
   <img alt="example" src="doc/example_en.png" width="50%" />
@@ -26,11 +26,8 @@ This stack create following architecture.
 > [!IMPORTANT]
 > This repository is set up to use the Anthropic Claude 3 Sonnet model in the US East (N. Virginia) region (us-east-1) by default. Please open the [Model access screen (us-east-1)](https://us-east-1.console.aws.amazon.com/bedrock/home?region=us-east-1#/modelaccess), check the Anthropic Claude 3 Sonnet option, and click Save changes.
 
-### Create Webhook URL 
+### Create Webhook URL
 Create the Webhook URL required for the notifications.
-
-#### For Microsoft Teams
-First open the `cdk.json` file and change the `destination` value in the `context`-`notifiers` section from `slack` to `teams`. Then, refer to [this documentation](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook?tabs=newteams%2Cdotnet) to create the Webhook URL.
 
 #### For Slack
 Refer to [this documentation](https://slack.com/help/articles/17542172840595-Build-a-workflow--Create-a-workflow-in-Slack) to create the Webhook URL. Select "Add a Variable" and create the following 5 variables, all with the Text data type:
@@ -41,7 +38,7 @@ Refer to [this documentation](https://slack.com/help/articles/17542172840595-Bui
 * `summary`: A summary of the article
 * `detail`: A bulleted description of the article
 
-### Create AWS Systems Manager Parameter Store 
+### Create AWS Systems Manager Parameter Store
 
 Use Parameter Store to securely store the notification URL.
 
@@ -66,12 +63,12 @@ If you haven't used CDK in this region before, run the following command:
 cdk bootstrap
 ```
 
-**Verify no errors** 
+**Verify no errors**
 ```
 cdk synth
 ```
 
-**Execute Deployment** 
+**Execute Deployment**
 
 ```
 cdk deploy
@@ -86,4 +83,4 @@ By default, some resources such as the Amazon DynamoDB table are set to not be d
 If you need to completely delete everything, you will need to access the remaining resources and manually delete them.
 
 ## Third Party Services
-This code interacts with Slack or Microsoft Teams which has terms published at [Terms Page (Slack)](https://slack.com/main-services-agreement) / [Terms Page (Microsoft 365)](https://www.microsoft.com/en/servicesagreement), and pricing described at [Pricing Page (Slack)](https://slack.com/pricing) / [Pricing Page (Microsoft 365)](https://www.microsoft.com/en-us/microsoft-365/business/compare-all-microsoft-365-business-products?&activetab=tab:primaryr2). You should be familiar with the pricing and confirm that your use case complies with the terms before proceeding.
+This code interacts with Slack which has terms published at [Terms Page (Slack)](https://slack.com/main-services-agreement), and pricing described at [Pricing Page (Slack)](https://slack.com/pricing). You should be familiar with the pricing and confirm that your use case complies with the terms before proceeding.

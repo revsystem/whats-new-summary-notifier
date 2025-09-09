@@ -13,12 +13,13 @@
             "package*.json",
             "yarn.lock",
             "node_modules",
-            "test"
+            "test",
+            "venv"
         ]
     },
     "context": {
-        "modelRegion": "ap-northeast-1",
-        "modelId": "apac.anthropic.claude-3-5-sonnet-20240620-v1:0",
+        "modelRegion": "us-west-2",
+        "modelId": "openai.gpt-oss-120b-1:0",
         "summarizers": {
             "AwsSolutionsArchitectEnglish": {
                 "outputLanguage": "English.",
