@@ -1,0 +1,7 @@
+[tools]
+aws = "latest"
+# [Node.js]
+node = "latest"
+"npm:aws-cdk" = "^2.141.0"
+# [Python]
+python = "3.12.0"
