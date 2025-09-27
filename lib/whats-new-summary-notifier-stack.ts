@@ -24,7 +24,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
     const notifiers: [] = this.node.tryGetContext('notifiers');
     const summarizers: [] = this.node.tryGetContext('summarizers');
 
-    // Role for Lambda Function to post new entries written to DynamoDB to Slack or Microsoft Teams
+    // Role for Lambda Function to post new entries written to DynamoDB to Slack
     const notifyNewEntryRole = new Role(this, 'NotifyNewEntryRole', {
       assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
     });
@@ -69,7 +69,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
       stream: StreamViewType.NEW_IMAGE,
     });
 
-    // Lambda Function to post new entries written to DynamoDB to Slack or Microsoft Teams
+    // Lambda Function to post new entries written to DynamoDB to Slack
     const notifyNewEntry = new PythonFunction(this, 'NotifyNewEntry', {
       runtime: Runtime.PYTHON_3_11,
       entry: path.join(__dirname, '../lambda/notify-to-app'),

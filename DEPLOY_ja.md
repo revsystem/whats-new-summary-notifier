@@ -16,7 +16,7 @@
 ## notifiers
 アプリケーションへの配信設定を行います。
 
-* `destination`: 投稿先のアプリケーション名。`slack` か `teams` のいずれかを設定してください。
+* `destination`: 投稿先のアプリケーション名。`slack`を設定してください。
 * `summarizerName`: 配信に使用する summarizer の名前。
 * `webhookUrlParameterName`: Webhook URL を格納している AWS Systems Manager Parameter Store のパラメータ名。
 * `rssUrl`: 最新情報を取得したい Web サイトの RSS フィード URL。URL は複数指定する事が可能です。

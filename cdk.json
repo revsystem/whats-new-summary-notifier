@@ -13,12 +13,13 @@
             "package*.json",
             "yarn.lock",
             "node_modules",
-            "test"
+            "test",
+            "venv"
         ]
     },
     "context": {
-        "modelRegion": "us-east-1",
-        "modelId": "anthropic.claude-3-sonnet-20240229-v1:0",
+        "modelRegion": "us-west-2",
+        "modelId": "openai.gpt-oss-120b-1:0",
         "summarizers": {
             "AwsSolutionsArchitectEnglish": {
                 "outputLanguage": "English.",
@@ -27,6 +28,10 @@
             "AwsSolutionsArchitectJapanese": {
                 "outputLanguage": "Japanese. Each sentence must be output in polite and formal desu/masu style",
                 "persona": "solutions architect in AWS"
+            },
+            "Formula1ProfessionalJapanese": {
+                "outputLanguage": "Japanese. Each sentence must be output in polite and formal desu/masu style",
+                "persona": "You are a Formula 1 journalist. And you are a fan of Formula 1"
             }
         },
         "notifiers": {
@@ -35,7 +40,37 @@
                 "summarizerName": "AwsSolutionsArchitectJapanese",
                 "webhookUrlParameterName": "/WhatsNew/URL",
                 "rssUrl": {
-                    "What’s new": "https://aws.amazon.com/about-aws/whats-new/recent/feed/"
+                    "What's new": "https://aws.amazon.com/about-aws/whats-new/recent/feed/",
+                    "AWS News Blog": "https://aws.amazon.com/blogs/aws/feed",
+                    "AWS News Security Blog": "https://aws.amazon.com/blogs/security/feed/",
+                    "AWS News Machine Learning Blog": "https://aws.amazon.com/blogs/machine-learning/feed/",
+                    "AWS Web Services Blog (JP)": "https://aws.amazon.com/jp/blogs/news/feed/",
+                    "AWS Web Services Blog (JP) - Generative AI": "https://aws.amazon.com/jp/blogs/news/category/artificial-intelligence/generative-ai/feed/",
+                    "AWS Web Services Blog - Generative AI": "https://aws.amazon.com/blogs/aws/category/artificial-intelligence/generative-ai/feed/",
+                    "AWS Web Services Blog (JP) - Generative AI 2": "https://aws.amazon.com/jp/blogs/news/category/generative-ai-2/feed/"
+                },
+                "schedule": {
+                    "minute": "20",
+                    "hour": "*",
+                    "day": "*",
+                    "month": "*",
+                    "year": "*"
+                }
+            },
+            "F1WhatsNew": {
+                "destination": "slack",
+                "summarizerName": "Formula1ProfessionalJapanese",
+                "webhookUrlParameterName": "/WhatsNewF1/URL",
+                "rssUrl": {
+                    "Latest F1 News": "https://www.racefans.net/feed/",
+                    "Racing News 365": "https://racingnews365.com/feed/news.xml"
+                },
+                "schedule": {
+                    "minute": "50",
+                    "hour": "*",
+                    "day": "*",
+                    "month": "*",
+                    "year": "*"
                 }
             }
         },

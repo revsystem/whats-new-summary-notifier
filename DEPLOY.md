@@ -16,7 +16,7 @@ Configure the prompt for summarizing the input to the generative AI.
 ## notifiers
 Configure the delivery settings to the application.
 
-* `destination`: The name of application to post to. Set either `slack` or `teams` according to the destination.
+* `destination`: The name of application to post to. Set `slack` according to the destination.
 * `summarizerName`: The name of the summarizer to use for delivery.
 * `webhookUrlParameterName`: The name of the AWS Systems Manager Parameter Store parameter that stores the Webhook URL.
 * `rssUrl`: The RSS feed URL of the website from which you want to get the latest information. Multiple URLs can be specified.

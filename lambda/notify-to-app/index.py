@@ -1,19 +1,22 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-import boto3
 import json
 import os
+import re
 import time
 import traceback
-
+import urllib.parse
 import urllib.request
-
 from typing import Optional
+
+import boto3
+import cloudscraper
 from botocore.config import Config
-from bs4 import BeautifulSoup
 from botocore.exceptions import ClientError
-import re
+from bs4 import BeautifulSoup
+from strands import Agent
+from strands.models import BedrockModel
 
 MODEL_ID = os.environ["MODEL_ID"]
 MODEL_REGION = os.environ["MODEL_REGION"]
@@ -33,27 +36,31 @@ def get_blog_content(url):
         str: The content of the blog post, or None if it cannot be retrieved.
     """
 
-    try:
-        if url.lower().startswith(("http://", "https://")):
-            # Use the `with` statement to ensure the response is properly closed
-            with urllib.request.urlopen(url) as response:
-                html = response.read()
-                if response.getcode() == 200:
-                    soup = BeautifulSoup(html, "html.parser")
-                    main = soup.find("main")
-
-                    if main:
-                        return main.text
-                    else:
-                        return None
-
-        else:
-            print(f"Error accessing {url}, status code {response.getcode()}")
-            return None
-
-    except urllib.error.URLError as e:
-        print(f"Error accessing {url}: {e.reason}")
+    if not url.lower().startswith(("http://", "https://")):
+        print(f"Invalid URL: {url}")
         return None
+
+    # create a cloudscraper instance
+    scraper = cloudscraper.create_scraper()
+
+    # dummy User-Agent
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    }
+
+    try:
+        response = scraper.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        main = soup.find("main")
+
+        return main.text if main else None
+
+    except Exception as e:
+        print(f"Error accessing {url}: {e}")
+        return None
+
 
 
 def get_bedrock_client(
@@ -125,87 +132,155 @@ def summarize_blog(
     blog_body,
     language,
     persona,
+    summarizer_name,
 ):
     """Summarize the content of a blog post
     Args:
         blog_body (str): The content of the blog post to be summarized
         language (str): The language for the summary
         persona (str): The persona to use for the summary
+        summarizer_name (str): The name of the summarizer to use
 
     Returns:
         str: The summarized text
     """
 
+    print(f"Summarizing blog with summarizer: {summarizer_name}")
     boto3_bedrock = get_bedrock_client(
         assumed_role=os.environ.get("BEDROCK_ASSUME_ROLE", None),
         region=MODEL_REGION,
     )
-    beginning_word = "<output>"
-    prompt_data = f"""
-<input>{blog_body}</input>
-<persona>You are a professional {persona}. </persona>
-<instruction>Describe a new update in <input></input> tags in bullet points to describe "What is the new feature", "Who is this update good for". description shall be output in <thinking></thinking> tags and each thinking sentence must start with the bullet point "- " and end with "\n". Make final summary as per <summaryRule></summaryRule> tags. Try to shorten output for easy reading. You are not allowed to utilize any information except in the input. output format shall be in accordance with <outputFormat></outputFormat> tags.</instruction>
+
+    if summarizer_name == "AwsSolutionsArchitectJapanese":
+        prompt_data = f"""
+<persona>You are a professional {persona} with deep expertise in cloud technologies and enterprise solutions. </persona>
+<instruction>
+Analyze the AWS update in <input></input> tags and provide structured insights focusing on:
+- What specific new feature, service, or enhancement is being announced
+- Which AWS services are involved or affected
+- What technical benefits this provides (performance, cost, scalability, security, etc.)
+- Who would benefit most from this update (enterprise users, developers, specific industries, etc.)
+- Any important technical requirements, limitations, or prerequisites
+
+Output your analysis in <thinking></thinking> tags using bullet points (each starting with "- " and ending with "\n").
+Create a concise summary following <summaryRule></summaryRule> and format according to <outputFormat></outputFormat>.
+Generate a Twitter-ready summary with relevant hashtags for the <twitter></twitter> section.
+</instruction>
 <outputLanguage>In {language}.</outputLanguage>
-<summaryRule>The final summary must consists of 1 or 2 sentences. Output format is defined in <outputFormat></outputFormat> tags.</summaryRule>
-<outputFormat><thinking>(bullet points of the input)</thinking><summary>(final summary)</summary></outputFormat>
-Follow the instruction.
+<summaryRule>The final summary must be 2-3 sentences that clearly explain the new AWS feature/update, its key benefits, and target audience in a professional yet accessible tone.</summaryRule>
+<outputFormat><thinking>(detailed bullet point analysis of the AWS update)</thinking><summary>(concise professional summary of the update)</summary><twitter>(Twitter-ready summary with hashtags within 200 characters)</twitter></outputFormat>
+Follow the instructions carefully and focus on technical accuracy and practical implications.
+"""
+    elif summarizer_name == "Formula1ProfessionalJapanese":
+        prompt_data = f"""
+<persona>You are a professional {persona} with extensive knowledge of F1 racing, teams, drivers, regulations, and the motorsport industry. </persona>
+<instruction>
+Analyze the Formula 1 news in <input></input> tags and provide comprehensive insights covering:
+- What is the main F1-related development or news story being reported
+- Which F1 teams, drivers, circuits, or officials are involved
+- How this impacts the current F1 season, championships, or future races
+- What are the technical, regulatory, or strategic implications
+- Why this news matters to F1 fans, teams, or the sport overall
+
+Output your analysis in <thinking></thinking> tags using bullet points (each starting with "- " and ending with "\n").
+Create an engaging summary following <summaryRule></summaryRule> and format according to <outputFormat></outputFormat>.
+Generate an exciting Twitter-ready summary with relevant F1 hashtags for the <twitter></twitter> section.
+</instruction>
+<outputLanguage>In {language}.</outputLanguage>
+<summaryRule>The final summary must be 2-3 sentences that capture the excitement and significance of the F1 news, explaining what happened and why it matters to fans in an engaging tone.</summaryRule>
+<outputFormat><thinking>(detailed bullet point analysis of the F1 news)</thinking><summary>(engaging summary that captures the excitement of the F1 news)</summary><twitter>(Twitter-ready summary with F1 hashtags within 200 characters)</twitter></outputFormat>
+Follow the instructions carefully and maintain the passion and excitement that F1 fans expect.
 """
 
     max_tokens = 4096
 
-    user_message = {
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": prompt_data,
-            }
-        ],
-    }
+    ## Use Bedrock API
+    # system_prompts = [
+    #     {
+    #         "text": prompt_data
+    #     }
+    # ]
 
-    assistant_message = {
-        "role": "assistant",
-        "content": [{"type": "text", "text": f"{beginning_word}"}],
-    }
+    # messages = [
+    #     {
+    #         "role": "user",
+    #         "content": [
+    #             {
+    #                 "text": f"<input>{blog_body}</input>"
+    #             }
+    #         ]
+    #     }
+    # ]
 
-    messages = [user_message, assistant_message]
+    # inference_config = {
+    #     "maxTokens": max_tokens,
+    #     "temperature": 0.5,
+    #     "topP": 1,
+    # }
 
-    body = json.dumps(
-        {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": max_tokens,
-            "messages": messages,
-            "temperature": 0.5,
-            "top_p": 1,
-            "top_k": 250,
-        }
+    # additional_model_request_fields = {
+    #     "inferenceConfig": {
+    #         "topK": 250
+    #     }
+    # }
+    # try:
+    #     response = boto3_bedrock.converse(
+    #         system=system_prompts,
+    #         messages=messages,
+    #         modelId=MODEL_ID,
+    #         inferenceConfig=inference_config,
+    #         additionalModelRequestFields=additional_model_request_fields
+    #     )
+
+    #    outputText = response["output"]["message"]["content"][0]["text"]
+
+    ## Use Strands API
+    model = BedrockModel(
+        params={
+            "temperature": 1.0,
+            "top_p": 1.0,
+            "max_completion_tokens": max_tokens
+        },
+        additional_request_fields={
+            "reasoning_effort": "medium"
+        },
+        model_id=MODEL_ID,
+        region_name=MODEL_REGION,
+        streaming=False,
     )
 
-    accept = "application/json"
-    contentType = "application/json"
-    outputText = "\n"
-
+    agent = Agent(
+        model=model,
+        system_prompt=prompt_data,
+        callback_handler=None,
+    )
     try:
-        response = boto3_bedrock.invoke_model(
-            body=body, modelId=MODEL_ID, accept=accept, contentType=contentType
-        )
-        response_body = json.loads(response.get("body").read().decode())
-        outputText = beginning_word + response_body.get("content")[0]["text"]
-        print(outputText)
+        response = agent(blog_body)
+
+        outputText = None
+        for content in response.message["content"]:
+            if "text" in content:
+                outputText = content["text"]
+                break
+
+        if outputText is None:
+            raise ValueError("No text content found in response")
         # extract contant inside <summary> tag
         summary = re.findall(r"<summary>([\s\S]*?)</summary>", outputText)[0]
         detail = re.findall(r"<thinking>([\s\S]*?)</thinking>", outputText)[0]
+        twitter = re.findall(r"<twitter>([\s\S]*?)</twitter>", outputText)[0]
     except ClientError as error:
         if error.response["Error"]["Code"] == "AccessDeniedException":
             print(
-                f"\x1b[41m{error.response['Error']['Message']}\
-            \nTo troubeshoot this issue please refer to the following resources.\ \nhttps://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_access-denied.html\
-            \nhttps://docs.aws.amazon.com/bedrock/latest/userguide/security-iam.html\x1b[0m\n"
+                f"{error.response['Error']['Message']}"
+                "\nTo troubeshoot this issue please refer to the following resources:\n"
+                "https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_access-denied.html\n"
+                "https://docs.aws.amazon.com/bedrock/latest/userguide/security-iam.html\n"
             )
         else:
             raise error
 
-    return summary, detail
+    return summary, detail, twitter
 
 
 def push_notification(item_list):
@@ -216,13 +291,12 @@ def push_notification(item_list):
     """
 
     for item in item_list:
-        
+
         notifier = NOTIFIERS[item["rss_notifier_name"]]
         webhook_url_parameter_name = notifier["webhookUrlParameterName"]
-        destination = notifier["destination"]
         ssm_response = ssm.get_parameter(Name=webhook_url_parameter_name, WithDecryption=True)
         app_webhook_url = ssm_response["Parameter"]["Value"]
-        
+
         item_url = item["rss_link"]
 
         # Get the blog context
@@ -230,19 +304,19 @@ def push_notification(item_list):
 
         # Summarize the blog
         summarizer = SUMMARIZERS[notifier["summarizerName"]]
-        summary, detail = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"])
+        summary, detail, twitter = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"], summarizer_name=notifier["summarizerName"])
 
         # Add the summary text to notified message
         item["summary"] = summary
         item["detail"] = detail
-        if destination == "teams":
-            item["detail"] = item["detail"].replace("。\n", "。\r")
-            msg = create_teams_message(item)
-        else:  # Slack
-            msg = item
+        item["twitter"] = twitter
+
+        item["twitter"] = item["twitter"].replace("\n", "")
+        msg = create_slack_message(item)
 
         encoded_msg = json.dumps(msg).encode("utf-8")
-        print("push_msg:{}".format(item))
+        # print("push_msg:{}".format(item))
+        print("push_msg:{}".format(msg))
         headers = {
             "Content-Type": "application/json",
         }
@@ -277,111 +351,22 @@ def get_new_entries(blog_entries):
     return res_list
 
 
-def create_teams_message(item):
+def create_slack_message(item):
+    # URL encode the twitter text
+    encoded_twitter_text = urllib.parse.quote("🤖 < " + item["twitter"] + " (生成AIによる要約ポスト)")
+
+    # URL encode the RSS link separately
+    encoded_rss_link = urllib.parse.quote(item["rss_link"])
+
     message = {
-        "type": "message",
-        "attachments": [
-            {
-                "contentType": "application/vnd.microsoft.card.adaptive",
-                "content": {
-                    "type": "AdaptiveCard",
-                    "version": "1.3",
-                    "body": [
-                        {
-                            "type": "ColumnSet",
-                            "columns": [
-                                {
-                                    "type": "Column",
-                                    "width": "auto",
-                                    "items": [
-                                        {
-                                            "type": "Container",
-                                            "id": "collapsedItems",
-                                            "items": [
-                                                {
-                                                    "type": "TextBlock",
-                                                    "text": f'**{item["rss_title"]}**',
-                                                },
-                                                {
-                                                    "type": "TextBlock",
-                                                    "wrap": True,
-                                                    "text": f'{item["summary"]}',
-                                                },
-                                            ],
-                                        },
-                                        {
-                                            "type": "Container",
-                                            "id": "expandedItems",
-                                            "isVisible": False,
-                                            "items": [
-                                                {
-                                                    "type": "TextBlock",
-                                                    "wrap": True,
-                                                    "text": f'{item["detail"]}',
-                                                }
-                                            ],
-                                        },
-                                    ],
-                                }
-                            ],
-                        },
-                        {
-                            "type": "Container",
-                            "items": [
-                                {
-                                    "type": "ColumnSet",
-                                    "columns": [
-                                        {
-                                            "type": "Column",
-                                            "width": "stretch",
-                                            "items": [
-                                                {
-                                                    "type": "TextBlock",
-                                                    "text": "see less",
-                                                    "id": "collapse",
-                                                    "isVisible": False,
-                                                    "wrap": True,
-                                                    "color": "Accent",
-                                                },
-                                                {
-                                                    "type": "TextBlock",
-                                                    "text": "see more",
-                                                    "id": "expand",
-                                                    "wrap": True,
-                                                    "color": "Accent",
-                                                },
-                                            ],
-                                        }
-                                    ],
-                                    "selectAction": {
-                                        "type": "Action.ToggleVisibility",
-                                        "targetElements": [
-                                            "collapse",
-                                            "expand",
-                                            "expandedItems",
-                                        ],
-                                    },
-                                }
-                            ],
-                        },
-                    ],
-                    "actions": [
-                        {
-                            "type": "Action.OpenUrl",
-                            "title": "Open Link",
-                            "wrap": True,
-                            "url": f'{item["rss_link"]}',
-                        }
-                    ],
-                    "msteams": {"width": "Full"},
-                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                },
-            }
-        ],
+        "text": f"{item['rss_time']}\n" \
+                f"<{item['rss_link']}|{item['rss_title']}>\n" \
+                f"{item['summary']}\n" \
+                f"{item['detail']}\n" \
+                f"<https://x.com/intent/tweet?url={encoded_rss_link}&text={encoded_twitter_text}|Share on X>"
     }
 
     return message
-
 
 def handler(event, context):
     """Notify about blog entries registered in DynamoDB
@@ -394,5 +379,5 @@ def handler(event, context):
         new_data = get_new_entries(event["Records"])
         if 0 < len(new_data):
             push_notification(new_data)
-    except Exception as e:
+    except Exception:
         print(traceback.print_exc())
