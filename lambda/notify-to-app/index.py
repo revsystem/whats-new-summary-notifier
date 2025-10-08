@@ -186,10 +186,58 @@ Output your analysis in <thinking></thinking> tags using bullet points (each sta
 Create an engaging summary following <summaryRule></summaryRule> and format according to <outputFormat></outputFormat>.
 Generate an exciting Twitter-ready summary with relevant F1 hashtags for the <twitter></twitter> section.
 </instruction>
+<glossary>
+When translating to Japanese, use the following proper nouns and technical terms exactly as specified:
+<names>
+- Max Verstappen: マックス・フェルスタッペン
+- Yuki Tsunoda: 角田裕毅
+- Lewis Hamilton: ルイス・ハミルトン
+- Charles Leclerc: シャルル・ルクレール
+- Lando Norris: ランド・ノリス
+- Oscar Piastri: オスカー・ピアストリ
+- George Russell: ジョージ・ラッセル
+- Kimi Antonelli: キミ・アントネッリ
+- Carlos Sainz: カルロス・サインツ
+- Alex Albon: アレックス・アルボン
+- Fernando Alonso: フェルナンド・アロンソ
+- Lance Stroll: ランス・ストロール
+- Pierre Gasly: ピエール・ガスリー
+- Franco Colapinto: フランコ・コラピント
+- Esteban Ocon: エスタバン・オコン
+- Oliver Bearman: オリバー・ベアマン
+- Nico Hulkenberg: ニコ・ヒュルケンベルグ
+- Gabriel Bortoleto: ガブリエル・ボルトレート
+- Isack Hadjar: アイザック・ハジャー
+- Liam Lawson: リアム・ローソン
+- Sergio Perez: セルジオ・ペレス
+- Valtteri Bottas: バルテリ・ボッタス
+- Sebastian Vettel: セバスチャン・ベッテル
+- Kimi Räikkönen: キミ・ライックネン
+- Christian Horner: クリスチャン・ホーナー
+- Toto Wolff: トト・ウォルフ
+- Frédéric Vasseur: フレデリック・バスール
+- Ayao Komatsu: 小松礼雄
+</names>
+<technical_terms>
+- Qualifying: 予選
+- Practice: フリー走行
+- Sprint Race: スプリントレース
+- Safety Car: セーフティカー
+- Virtual Safety Car: バーチャルセーフティカー
+- Undercut: アンダーカット
+- Overcut: オーバーカット
+- Slipstream: スリップストリーム
+- Toe: トゥ
+- Downforce: ダウンフォース
+- Ground Effect: グラウンドエフェクト
+- Porpoising: ポーポイジング
+- Parc Fermé: パルクフェルメ
+</technical_terms>
+</glossary>
 <outputLanguage>In {language}.</outputLanguage>
 <summaryRule>The final summary must be 2-3 sentences that capture the excitement and significance of the F1 news, explaining what happened and why it matters to fans in an engaging tone.</summaryRule>
 <outputFormat><thinking>(detailed bullet point analysis of the F1 news)</thinking><summary>(engaging summary that captures the excitement of the F1 news)</summary><twitter>(Twitter-ready summary with F1 hashtags within 200 characters)</twitter></outputFormat>
-Follow the instructions carefully and maintain the passion and excitement that F1 fans expect.
+Follow the instructions carefully and maintain the passion and excitement that F1 fans expect. When outputting in Japanese, strictly adhere to the proper noun translations provided in the glossary.
 """
 
     max_tokens = 4096
