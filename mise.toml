@@ -2,6 +2,7 @@
 aws = "latest"
 # [Node.js]
 node = "latest"
-"npm:aws-cdk" = "^2.141.0"
+"npm:aws-cdk" = "latest"
+"npm:aws-cdk-lib" = "latest"
 # [Python]
 python = "3.12.0"
