@@ -218,6 +218,19 @@ When translating to Japanese, use the following proper nouns and technical terms
 - Frédéric Vasseur: フレデリック・バスール
 - Ayao Komatsu: 小松礼雄
 </names>
+<teams>
+- Red Bull Racing: レッドブル・レーシング
+- Mercedes: メルセデス
+- Ferrari: フェラーリ
+- McLaren: マクラーレン
+- Alpine: アルペン
+- Aston Martin: アストンマーチン
+- Williams: ウィリアムズ
+- Haas: ハース
+- Alfa Romeo: アルファロメオ
+- Racing Bulls: レーシングブルズ
+- KICK Sauber: キックサウバー
+</teams>
 <technical_terms>
 - Qualifying: 予選
 - Practice: フリー走行

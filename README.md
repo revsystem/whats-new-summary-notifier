@@ -4,6 +4,8 @@
 
 **Whats New Summary Notifier** is a sample implementation of a generative AI application that summarizes the content of AWS What's New and other web articles in multiple languages when there is an update, and delivers the summary to Slack.
 
+This application supports websites that are created with WordPress. For example, I configured related to the Formula 1 news site. You can find configurations in cdk.json.
+
 <p align="center">
   <img alt="example" src="doc/example_en.png" width="50%" />
 </p>

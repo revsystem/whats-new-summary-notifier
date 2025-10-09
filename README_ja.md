@@ -2,6 +2,8 @@
 
 **Whats New Summary Notifier** は、AWS 最新情報 (What's New) などのウェブ記事に更新があった際に記事内容を Amazon Bedrock で要約し、Slack への配信を行う生成 AI アプリケーションのサンプル実装です。
 
+このアプリケーションは、WordPressで作成されたウェブサイトをサポートします。例えば、F1ニュースサイトに関連する設定を行いました。設定内容は、cdk.jsonで確認できます。
+
 <p align="center">
   <img src="doc/example_ja.png" alt="example" width="50%" />
 </p>
