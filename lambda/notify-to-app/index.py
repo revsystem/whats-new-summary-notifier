@@ -162,14 +162,25 @@ Analyze the AWS update in <input></input> tags and provide structured insights f
 - Who would benefit most from this update (enterprise users, developers, specific industries, etc.)
 - Any important technical requirements, limitations, or prerequisites
 
+IMPORTANT: When writing in Japanese, use consistent and accurate translations for all AWS service names and technical terms. Maintain professional terminology throughout.
+
 Output your analysis in <thinking></thinking> tags using bullet points (each starting with "- " and ending with "\n").
 Create a concise summary following <summaryRule></summaryRule> and format according to <outputFormat></outputFormat>.
-Generate a Twitter-ready summary with relevant hashtags for the <twitter></twitter> section.
+Generate a Twitter-ready summary for the <twitter></twitter> section following <twitterRules></twitterRules>.
 </instruction>
 <outputLanguage>In {language}.</outputLanguage>
 <summaryRule>The final summary must be 2-3 sentences that clearly explain the new AWS feature/update, its key benefits, and target audience in a professional yet accessible tone.</summaryRule>
-<outputFormat><thinking>(detailed bullet point analysis of the AWS update)</thinking><summary>(concise professional summary of the update)</summary><twitter>(Twitter-ready summary with hashtags within 200 characters)</twitter></outputFormat>
-Follow the instructions carefully and focus on technical accuracy and practical implications.
+<twitterRules>
+STRICT RULES for Twitter summary:
+- NEVER use exclamation marks or show excessive excitement
+- State objective facts concisely and professionally
+- NO hashtags whatsoever
+- Keep within 200 characters
+- Use neutral, informative tone
+- Focus on factual information only
+</twitterRules>
+<outputFormat><thinking>(detailed bullet point analysis of the AWS update)</thinking><summary>(concise professional summary of the update)</summary><twitter>(Twitter-ready summary within 200 characters following twitterRules strictly)</twitter></outputFormat>
+Follow the instructions carefully and focus on technical accuracy and practical implications. When outputting in Japanese, ensure consistent and professional translation of all technical terms and service names.
 """
     elif summarizer_name == "Formula1ProfessionalJapanese":
         prompt_data = f"""
@@ -182,12 +193,16 @@ Analyze the Formula 1 news in <input></input> tags and provide comprehensive ins
 - What are the technical, regulatory, or strategic implications
 - Why this news matters to F1 fans, teams, or the sport overall
 
+IMPORTANT: When writing in Japanese, you MUST use the exact translations provided in the glossary section below for all names, teams, and technical terms. This is mandatory and non-negotiable.
+
 Output your analysis in <thinking></thinking> tags using bullet points (each starting with "- " and ending with "\n").
 Create an engaging summary following <summaryRule></summaryRule> and format according to <outputFormat></outputFormat>.
-Generate an exciting Twitter-ready summary with relevant F1 hashtags for the <twitter></twitter> section.
+Generate a Twitter-ready summary for the <twitter></twitter> section following <twitterRules></twitterRules>.
 </instruction>
 <glossary>
-When translating to Japanese, use the following proper nouns and technical terms exactly as specified:
+MANDATORY TRANSLATION RULES - You MUST follow these translations exactly:
+When translating to Japanese, you are REQUIRED to use the following proper nouns and technical terms exactly as specified. DO NOT use any other translations or variations:
+
 <names>
 - Max Verstappen: マックス・フェルスタッペン
 - Yuki Tsunoda: 角田裕毅
@@ -218,19 +233,21 @@ When translating to Japanese, use the following proper nouns and technical terms
 - Frédéric Vasseur: フレデリック・バスール
 - Ayao Komatsu: 小松礼雄
 </names>
+
 <teams>
 - Red Bull Racing: レッドブル・レーシング
 - Mercedes: メルセデス
 - Ferrari: フェラーリ
 - McLaren: マクラーレン
-- Alpine: アルペン
+- Alpine: アルピーヌ
 - Aston Martin: アストンマーチン
 - Williams: ウィリアムズ
 - Haas: ハース
 - Alfa Romeo: アルファロメオ
-- Racing Bulls: レーシングブルズ
-- KICK Sauber: キックサウバー
+- Racing Bulls: レーシング・ブルズ
+- KICK Sauber: キックザウバー
 </teams>
+
 <technical_terms>
 - Qualifying: 予選
 - Practice: フリー走行
@@ -246,11 +263,25 @@ When translating to Japanese, use the following proper nouns and technical terms
 - Porpoising: ポーポイジング
 - Parc Fermé: パルクフェルメ
 </technical_terms>
+
+CRITICAL: If any of these terms appear in the content, you MUST use the exact Japanese translation provided above. Using any other translation is strictly forbidden and will be considered an error.
 </glossary>
 <outputLanguage>In {language}.</outputLanguage>
-<summaryRule>The final summary must be 2-3 sentences that capture the excitement and significance of the F1 news, explaining what happened and why it matters to fans in an engaging tone.</summaryRule>
-<outputFormat><thinking>(detailed bullet point analysis of the F1 news)</thinking><summary>(engaging summary that captures the excitement of the F1 news)</summary><twitter>(Twitter-ready summary with F1 hashtags within 200 characters)</twitter></outputFormat>
-Follow the instructions carefully and maintain the passion and excitement that F1 fans expect. When outputting in Japanese, strictly adhere to the proper noun translations provided in the glossary.
+<summaryRule>The final summary must be 2-3 sentences that capture the significance of the F1 news, explaining what happened and why it matters to fans in a professional tone.</summaryRule>
+<twitterRules>
+STRICT RULES for Twitter summary:
+- NEVER use exclamation marks or show excessive excitement
+- State objective facts concisely and professionally
+- NO hashtags whatsoever
+- Keep within 200 characters
+- Use neutral, informative tone
+- Focus on factual information only
+- Avoid emotional language or superlatives
+</twitterRules>
+<outputFormat><thinking>(detailed bullet point analysis of the F1 news)</thinking><summary>(professional summary that captures the significance of the F1 news)</summary><twitter>(Twitter-ready summary within 200 characters following twitterRules strictly)</twitter></outputFormat>
+Follow the instructions carefully and maintain professionalism while providing accurate information. 
+
+MANDATORY GLOSSARY COMPLIANCE: When outputting in Japanese, you MUST strictly adhere to the proper noun translations provided in the glossary above. Any deviation from these translations is strictly prohibited. Before finalizing your output, verify that all names, teams, and technical terms use the exact Japanese translations specified in the glossary.
 """
 
     max_tokens = 4096
@@ -414,7 +445,8 @@ def get_new_entries(blog_entries):
 
 def create_slack_message(item):
     # URL encode the twitter text
-    encoded_twitter_text = urllib.parse.quote("🤖 < " + item["twitter"] + " (生成AIによる要約ポスト)")
+    # encoded_twitter_text = urllib.parse.quote("🤖 < " + item["twitter"] + " (生成AIによる要約ポスト)")
+    encoded_twitter_text = urllib.parse.quote(item["twitter"])
 
     # URL encode the RSS link separately
     encoded_rss_link = urllib.parse.quote(item["rss_link"])

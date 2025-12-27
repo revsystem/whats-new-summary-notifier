@@ -8,9 +8,37 @@
   <img src="doc/example_ja.png" alt="example" width="50%" />
 </p>
 
+## 機能
+
+- **AI駆動の要約**: Strands Agent SDKとAmazon Bedrockモデルを使用したインテリジェントなコンテンツ要約
+- **多言語サポート**: 日本語、英語、その他の言語での出力設定が可能
+- **自動RSS監視**: 新しいコンテンツのスケジュール化されたRSSフィードクローリング
+- **Slack統合**: SlackチャンネルへのサマリーのダイレクトDelivery
+- **モダンな依存関係**: 自動解決による最新の互換バージョンの依存関係を使用
+
 ## アーキテクチャ
 
 ![architecture](doc/architecture.png)
+
+## 技術詳細
+
+### 依存関係
+
+このプロジェクトでは、以下の主要な依存関係を使用しています：
+
+- **Strands Agent SDK**: AIモデルのインタラクションとエージェントベースの処理用
+- **AWS CDK**: TypeScriptを使用したInfrastructure as Code
+- **Python 3.12**: Lambda関数のランタイム
+- **Docker**: AWS SAMを使用したLambda関数ビルドに必要
+
+### Lambda関数
+
+1. **RSS Crawler**: RSSフィードを監視し、新しいエントリをDynamoDBに保存
+2. **Notify to App**: 新しいエントリを処理し、Strands Agent SDKを使用してAI要約を生成し、Slackに通知を送信
+
+### 依存関係解決
+
+このプロジェクトでは、複雑なパッケージ依存関係を処理するために自動依存関係解決を使用しています。`requirements.txt`ファイルは、依存関係リゾルバーが必要なすべてのパッケージの互換バージョンを自動的に見つけることができるように設定されています。
 
 ## 前提条件
 
@@ -46,11 +74,21 @@ Parameter Store を使って 通知用の URL をセキュアに格納します�
 
 #### パラメータストア登録 (AWS CLI)
 
-```
+```bash
 aws ssm put-parameter \
   --name "/WhatsNew/URL" \
   --type "SecureString" \
   --value "<Webhook URL を入力>"
+```
+
+特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
+
+```bash
+aws ssm put-parameter \
+  --name "/WhatsNew/URL" \
+  --type "SecureString" \
+  --value "<Webhook URL を入力>" \
+  --profile your-profile-name
 ```
 
 ### 言語設定の変更 (オプション)
@@ -63,32 +101,90 @@ aws ssm put-parameter \
 
 このリージョンで CDK を使用したことがない場合は、次のコマンドを実行します。
 
-```
+```bash
 cdk bootstrap
+```
+
+特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
+
+```bash
+cdk bootstrap --profile your-profile-name
 ```
 
 **エラーがないことを確認**
 
-```
+```bash
 cdk synth
+```
+
+特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
+
+```bash
+cdk synth --profile your-profile-name
 ```
 
 **デプロイの実行**
 
-```
+```bash
 cdk deploy
+```
+
+特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
+
+```bash
+cdk deploy --profile your-profile-name
 ```
 
 ## スタックの削除
 
 不要になった場合は以下のコマンドを実行しスタックを削除します。
 
-```
+```bash
 cdk destroy
+```
+
+特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
+
+```bash
+cdk destroy --profile your-profile-name
 ```
 
 デフォルトでは Amazon DynamoDB テーブルなど一部のリソースが削除されず残る設定となっています。
 完全な削除が必要な場合は、残存したリソースにアクセスし、手動で削除を行ってください。
+
+## トラブルシューティング
+
+### 依存関係の競合
+
+デプロイ中に依存関係の競合が発生した場合、システムが自動的に互換性のあるバージョンを解決します。requirements.txtファイルは、自動依存関係解決を可能にするように設定されています。
+
+### Dockerビルドの問題
+
+- CDKコマンドを実行する前にDockerが実行されていることを確認してください
+- ビルドプロセスは自動的にダウンロードされるAWS SAMビルドイメージを使用します
+- ビルドが失敗した場合は、まず`cdk synth`を実行して設定を確認してください
+
+### よくある問題
+
+1. **モデルアクセス**: AWSリージョンで必要なBedrockモデルが有効になっていることを確認してください
+2. **プロファイル設定**: 名前付きAWSプロファイルを使用している場合は、常に`--profile`オプションを使用してください
+3. **リージョンの一貫性**: すべてのリソースが同じAWSリージョンにデプロイされていることを確認してください
+
+## 変更履歴
+
+### 最近の更新
+
+- **Strands Agent SDK統合**: 直接のBedrock API呼び出しからStrands Agent SDKに移行し、AIモデルのインタラクションを改善
+- **依存関係管理**: パッケージ間の競合を防ぐための依存関係解決を改善
+- **ドキュメント**: 包括的なトラブルシューティングガイドと技術詳細を追加
+- **プロファイルサポート**: すべてのCDKおよびAWS CLIコマンドで`--profile`オプションサポートを強化
+
+### 移行ノート
+
+以前のバージョンからアップグレードする場合：
+1. Lambda関数は直接のBedrock API呼び出しの代わりにStrands Agent SDKを使用するようになりました
+2. 依存関係は自動的に解決されます - 手動でのバージョン管理は不要です
+3. すべてのCDKコマンドでAWSプロファイル指定がサポートされるようになりました
 
 ## Third Party Services
 
