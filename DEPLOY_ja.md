@@ -1,4 +1,134 @@
-# デプロイオプション
+# デプロイガイド
+
+## デプロイ手順
+
+> [!IMPORTANT]
+> このリポジトリでは、デフォルトで米国西部 (オレゴン) リージョン (us-west-2) の Amazon Nova Pro モデル (クロスリージョンインファレンスプロファイル) を利用する設定になっています。[Model access 画面 (us-west-2)](https://us-west-2.console.aws.amazon.com/bedrock/home?region=us-west-2#/modelaccess)を開き、Amazon Nova Pro にチェックして Save changes してください。
+
+### Webhook URL の取得
+
+通知に必要となる Webhook URL の払い出しを行います。
+
+#### Slack の設定
+
+[こちらのドキュメント](https://slack.com/intl/ja-jp/help/articles/360041352714-%E3%83%AF%E3%83%BC%E3%82%AF%E3%83%95%E3%83%AD%E3%83%BC%E3%82%92%E4%BD%9C%E6%88%90%E3%81%99%E3%82%8B---Slack-%E5%A4%96%E9%83%A8%E3%81%A7%E9%96%8B%E5%A7%8B%E3%81%95%E3%82%8C%E3%82%8B%E3%83%AF%E3%83%BC%E3%82%AF%E3%83%95%E3%83%AD%E3%83%BC%E3%82%92%E4%BD%9C%E6%88%90%E3%81%99%E3%82%8B)を参考にして Webhook URL を取得してください。「変数を追加する」を選び、次の 5 つの変数をすべてテキストデータタイプで作成します。
+
+- `rss_time`: 記事の投稿時間
+- `rss_link`: 記事の URL
+- `rss_title`: 記事のタイトル
+- `summary`: 記事の要約
+- `detail`: 記事の箇条書き説明
+
+### AWS Systems Manager Parameter Store を作成
+
+Parameter Store を使って 通知用の URL をセキュアに格納します。
+
+#### パラメータストア登録 (AWS CLI)
+
+```bash
+aws ssm put-parameter \
+  --name "/WhatsNew/URL" \
+  --type "SecureString" \
+  --value "<Webhook URL を入力>"
+```
+
+特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
+
+```bash
+aws ssm put-parameter \
+  --name "/WhatsNew/URL" \
+  --type "SecureString" \
+  --value "<Webhook URL を入力>" \
+  --profile your-profile-name
+```
+
+### 言語設定の変更 (オプション)
+
+このアセットはデフォルトで日本語の要約を出力するように設定されています。英語等の他言語の出力を行う場合は、`cdk.json` を開き、`context` 内の `notifiers` 内の `summarizerName` を `AwsSolutionsArchitectJapanese` から `AwsSolutionsArchitectEnglish` などに書き換えてください。その他の設定オプションについては[設定オプション](#設定オプション)を参照してください。
+
+### デプロイの実行
+
+**デプロイ先リージョン**
+
+デプロイ先リージョンは `CDK_DEFAULT_REGION` で指定します。`.env.example` を `.env` にコピーし、リージョン（例: `CDK_DEFAULT_REGION=us-east-1`）を設定してください。未設定の場合は `us-east-1` が使われます。
+
+AWS プロファイルのデフォルトリージョンがデプロイ先と異なる場合、CDK の bootstrap 参照がプロファイルのリージョンを参照してしまいます。その場合は `AWS_DEFAULT_REGION` もあわせて指定してください。
+
+**初期化**
+
+このリージョンで CDK を使用したことがない場合は、次のコマンドを実行します。
+
+```bash
+cdk bootstrap
+```
+
+特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
+
+```bash
+cdk bootstrap --profile your-profile-name
+```
+
+**エラーがないことを確認**
+
+```bash
+cdk synth
+```
+
+特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
+
+```bash
+cdk synth --profile your-profile-name
+```
+
+**デプロイの実行**
+
+```bash
+cdk deploy
+```
+
+特定のAWSプロファイルを使用している場合や、プロファイルのリージョンがデプロイ先と異なる場合は、以下のように指定してください：
+
+```bash
+AWS_DEFAULT_REGION=us-east-1 cdk deploy --profile your-profile-name
+```
+
+## スタックの削除
+
+不要になった場合は以下のコマンドを実行しスタックを削除します。
+
+```bash
+cdk destroy
+```
+
+特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
+
+```bash
+cdk destroy --profile your-profile-name
+```
+
+デフォルトでは Amazon DynamoDB テーブルなど一部のリソースが削除されず残る設定となっています。
+完全な削除が必要な場合は、残存したリソースにアクセスし、手動で削除を行ってください。
+
+## トラブルシューティング
+
+### 依存関係の競合
+
+デプロイ中に依存関係の競合が発生した場合、システムが自動的に互換性のあるバージョンを解決します。requirements.txtファイルは、自動依存関係解決を可能にするように設定されています。
+
+### Dockerビルドの問題
+
+- CDKコマンドを実行する前にDockerが実行されていることを確認してください
+- ビルドプロセスは自動的にダウンロードされるAWS SAMビルドイメージを使用します
+- ビルドが失敗した場合は、まず`cdk synth`を実行して設定を確認してください
+
+### よくある問題
+
+1. **モデルアクセス**: AWSリージョンで必要なBedrockモデルが有効になっていることを確認してください
+2. **プロファイル設定**: 名前付きAWSプロファイルを使用している場合は、常に`--profile`オプションを使用してください
+3. **リージョンの一貫性**: すべてのリソースが同じAWSリージョンにデプロイされていることを確認してください
+
+# 設定オプション
+
 本アセットは、AWS CDK の context で設定を変更します。
 
 [cdk.json](cdk.json) の `context` 以下の値を変更することで設定します。各設定項目についての説明は下記の通りです。
@@ -54,7 +184,7 @@ cat <<< $(jq  '.volume_size = 20'  params.json )  > params.json
 ```bash
 ./bin/bootstrap
 ```
-1. [Cloud9](https://console.aws.amazon.com/cloud9/home) に移動し、"Open IDE" をクリックします。
+6. [Cloud9](https://console.aws.amazon.com/cloud9/home) に移動し、"Open IDE" をクリックします。
 
 > [!NOTE]
 > 本手順で作成した AWS Cloud9 環境は、利用時間に応じて EC2 料金が従量課金で発生します。
