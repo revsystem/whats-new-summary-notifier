@@ -24,7 +24,7 @@ aws sts get-caller-identity --profile production
 aws sso login --profile production
 ```
 
-1. Docker が起動していることを確認する:
+2. Docker が起動していることを確認する:
 
 ```bash
 docker info
