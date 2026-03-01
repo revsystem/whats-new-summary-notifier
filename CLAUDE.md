@@ -15,21 +15,22 @@ cdk bootstrap   # run once per account/region
 cdk deploy
 ```
 
-**Prerequisites:** Docker (required for Lambda build via `aws-lambda-python-alpha`). See [README.md](README.md) for full prerequisites.
+Prerequisites: Docker (required for Lambda build via `aws-lambda-python-alpha`). See [README.md](README.md) for full prerequisites.
 
 ## Architecture
 
 The application consists of:
-- **RSS Crawler Lambda**: Fetches RSS feeds and stores new entries in DynamoDB
-- **Notification Lambda**: Triggered by DynamoDB streams, summarizes content using Bedrock, and posts to Slack
-- **DynamoDB Table**: Stores RSS history to avoid duplicate processing
-- **EventBridge Rules**: Schedules RSS crawling based on configured cron expressions
-- **SSM Parameter Store**: Securely stores Slack webhook URLs
+- RSS Crawler Lambda: Fetches RSS feeds and stores new entries in DynamoDB
+- Notification Lambda: Triggered by DynamoDB streams, summarizes content using Bedrock, and posts to Slack
+- DynamoDB Table: Stores RSS history to avoid duplicate processing
+- EventBridge Rules: Schedules RSS crawling based on configured cron expressions
+- SSM Parameter Store: Securely stores Slack webhook URLs
 
 ## Key Files
 
 - `bin/whats-new-summary-notifier.ts` - CDK app entry point
 - `lib/whats-new-summary-notifier-stack.ts` - Stack definition (DynamoDB, Lambdas, EventBridge, SSM)
+- `cdk.json` - Application configuration (modelRegion, modelId, summarizers, notifiers)
 
 ## Build and Development Commands
 
@@ -49,44 +50,18 @@ The application consists of:
 - `npm run audit` - Run npm security audit on dependencies
 - `npm run deps:update` - Update dependencies, then build and test
 
-## Configuration
-
-The application is configured via the `context` section in `cdk.json`:
-
-- **modelRegion**: AWS region for Bedrock (currently us-west-2)
-- **modelId**: Bedrock model ID (currently us.amazon.nova-pro-v1:0 — cross-region inference profile)
-- **summarizers**: Define different AI personas and output languages
-- **notifiers**: Configure RSS sources, schedules, and Slack webhook parameters
-
-### Key Configuration Points
-- Each notifier can have its own RSS feeds, schedule, and summarizer
-- Webhook URLs are stored in SSM Parameter Store for security
-- Default schedule runs every hour, but can be customized per notifier
-- Supports multiple languages (English/Japanese) and personas (AWS Solutions Architect, F1 Journalist)
-
 ## Lambda Functions
 
 ### RSS Crawler (`lambda/rss-crawler/index.py`)
 - Fetches RSS feeds using feedparser
 - Filters entries to only those published within the last 7 days (hardcoded)
-- Stores new entries in DynamoDB with deduplication
-- DynamoDB key: `url` (partition) + `notifier_name` (sort) — natural dedup without explicit checks
+- Stores new entries in DynamoDB
 
 ### Notification Handler (`lambda/notify-to-app/index.py`)
-
-- Triggered by DynamoDB streams on new RSS entries (batchSize=1, StreamViewType=NEW_IMAGE)
+- Triggered by DynamoDB streams on new RSS entries
 - Scrapes full article content using cloudscraper and BeautifulSoup (targets `<main>` tag)
-- Summarizes content using Strands Agents SDK (`strands-agents` library) with Bedrock — temperature=0.1
+- Summarizes content using Strands Agents SDK with Bedrock
 - Posts formatted messages to Slack with Twitter sharing links
-- F1 notifier has a strict Japanese glossary for driver/team names — edit carefully
-
-## Gotchas
-
-- Prerequisites, deployment steps, and common pitfalls: see [README.md](README.md).
-- **Docker** must be running before `cdk deploy` (Lambda build).
-- **Bedrock** model access must be enabled in the region set in `modelRegion` (cdk.json).
-- **F1 Glossary**: The Formula 1 notifier enforces a strict glossary for Japanese translations of driver names, team names, and technical terms (defined in `lambda/notify-to-app/index.py`). Always preserve these mappings when editing prompts.
-- **cdk-nag**: `bin/cdk_test.ts` runs AwsSolutionsChecks on synth. CDK nag suppressions are required for any intentional deviations from AWS security best practices.
 
 ## Development Notes
 
@@ -94,5 +69,14 @@ The application is configured via the `context` section in `cdk.json`:
 - CDK stack uses TypeScript with AWS CDK v2
 - Tool versions are managed via `mise` (see `mise.toml`) — install with `mise install`
 - Web scraping handles Cloudflare protection using cloudscraper
-- Bedrock summarization includes structured output with thinking/summary/twitter sections
-- Lambda concurrency is limited to 1 for the notification function to prevent rate limiting
+
+## Architecture and Security Constraints
+
+See `.claude/rules/` for detailed constraints Claude must follow:
+- `.claude/rules/architecture-patterns.md` — DynamoDB design, Lambda concurrency limit, Bedrock params, F1 glossary
+- `.claude/rules/security-requirements.md` — CDK nag, SSM secrets, IAM
+- `.claude/rules/infrastructure-requirements.md` — AWS profiles, CDK context values, SSM parameter names
+
+## Deployment
+
+See `.claude/skills/deploy-production/SKILL.md` or invoke `/deploy-production` for the full deployment checklist including WSL2 setup, CDK deploy, and post-deploy verification.
