@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 os.environ.setdefault("MODEL_ID", "test-model-id")
 os.environ.setdefault("MODEL_REGION", "us-west-2")
 os.environ.setdefault("NOTIFIERS", json.dumps({
