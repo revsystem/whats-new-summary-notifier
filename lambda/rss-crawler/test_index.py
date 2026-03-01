@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from botocore.exceptions import ClientError
 
+os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 os.environ.setdefault("DDB_TABLE_NAME", "test-table")
 
 import index  # noqa: E402
