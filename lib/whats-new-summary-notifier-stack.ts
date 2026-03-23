@@ -7,9 +7,15 @@ import { Role, Policy, ServicePrincipal, PolicyStatement, Effect } from 'aws-cdk
 import { Runtime, StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import { DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
+import type { BundlingOptions } from '@aws-cdk/aws-lambda-python-alpha/lib/types';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import * as path from 'path';
+
+/** Keep local `.venv` out of the bundling rsync step; otherwise pip -t duplicates deps (~590MB unzipped). */
+const pythonLambdaBundling: BundlingOptions = {
+  assetExcludes: ['.venv', 'venv', '.pytest_cache', '__pycache__'],
+};
 
 export class WhatsNewSummaryNotifierStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -87,6 +93,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
     const notifyNewEntry = new PythonFunction(this, 'NotifyNewEntry', {
       runtime: Runtime.PYTHON_3_12,
       entry: path.join(__dirname, '../lambda/notify-to-app'),
+      bundling: pythonLambdaBundling,
       handler: 'handler',
       index: 'index.py',
       timeout: Duration.seconds(180),
@@ -121,6 +128,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
     const newsCrawler = new PythonFunction(this, `newsCrawler`, {
       runtime: Runtime.PYTHON_3_12,
       entry: path.join(__dirname, '../lambda/rss-crawler'),
+      bundling: pythonLambdaBundling,
       handler: 'handler',
       index: 'index.py',
       timeout: Duration.seconds(60),
