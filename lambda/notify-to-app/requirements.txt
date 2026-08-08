@@ -3,4 +3,4 @@
 beautifulsoup4>=4.14.3
 boto3>=1.42.46,<2
 cloudscraper>=1.2.71
-strands-agents>=1.25.0
+strands-agents[openai]>=1.39.0

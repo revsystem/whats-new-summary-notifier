@@ -19,7 +19,8 @@
     },
     "context": {
         "modelRegion": "us-west-2",
-        "modelId": "us.amazon.nova-pro-v1:0",
+        "modelId": "openai.gpt-5.6-terra",
+        "modelApiMode": "responses",
         "summarizers": {
             "AwsSolutionsArchitectEnglish": {
                 "outputLanguage": "English.",

@@ -11,17 +11,76 @@ import urllib.request
 
 import boto3
 import cloudscraper
+import openai
 from botocore.exceptions import ClientError
 from bs4 import BeautifulSoup
 from strands import Agent
 from strands.models import BedrockModel
+from strands.models.openai_responses import OpenAIResponsesModel
 
 MODEL_ID = os.environ["MODEL_ID"]
 MODEL_REGION = os.environ["MODEL_REGION"]
+# "converse" routes through bedrock-runtime; "responses" routes through the
+# bedrock-mantle endpoint. Defaults to converse so existing deployments that
+# predate this variable keep working unchanged.
+MODEL_API_MODE = os.environ.get("MODEL_API_MODE", "converse")
 NOTIFIERS = json.loads(os.environ["NOTIFIERS"])
 SUMMARIZERS = json.loads(os.environ["SUMMARIZERS"])
 
 ssm = boto3.client("ssm")
+
+# Models that are only served through the Responses API on bedrock-mantle.
+# Add new Responses-only model IDs here.
+RESPONSES_ONLY_MODEL_IDS = frozenset({"openai.gpt-5.6-terra"})
+
+
+def validate_model_config(model_id, model_api_mode):
+    """Fail fast when the model ID and the API mode do not match."""
+
+    if model_api_mode not in ("converse", "responses"):
+        raise ValueError(f"Unsupported MODEL_API_MODE: {model_api_mode!r}")
+
+    is_responses_only = model_id in RESPONSES_ONLY_MODEL_IDS
+    if is_responses_only and model_api_mode != "responses":
+        raise ValueError(
+            f"Model {model_id!r} is only available through the Responses API; "
+            f"set MODEL_API_MODE=responses (got {model_api_mode!r})"
+        )
+    if not is_responses_only and model_api_mode == "responses":
+        raise ValueError(
+            f"Model {model_id!r} is not registered as a Responses-only model; "
+            f"set MODEL_API_MODE=converse (got {model_api_mode!r})"
+        )
+
+
+validate_model_config(MODEL_ID, MODEL_API_MODE)
+
+
+def build_model(max_tokens):
+    """Build the Strands model for the configured API mode."""
+
+    if MODEL_API_MODE == "responses":
+        # GPT-5.6 Terra rejects top_p, so only temperature is passed here.
+        return OpenAIResponsesModel(
+            model_id=MODEL_ID,
+            bedrock_mantle_config={"region": MODEL_REGION},
+            params={
+                "temperature": 0.1,
+                "max_output_tokens": max_tokens,
+                "reasoning": {"effort": "medium"},
+            },
+        )
+
+    return BedrockModel(
+        params={
+            "temperature": 0.1,
+            "top_p": 0.1,
+            "max_tokens": max_tokens
+        },
+        model_id=MODEL_ID,
+        region_name=MODEL_REGION,
+        streaming=False,
+    )
 
 
 def get_blog_content(url):
@@ -244,16 +303,7 @@ FINAL CHECK before you output: When output language is Japanese, scan your <summ
 
     max_tokens = 4096
 
-    model = BedrockModel(
-        params={
-            "temperature": 0.1,
-            "top_p": 0.1,
-            "max_tokens": max_tokens
-        },
-        model_id=MODEL_ID,
-        region_name=MODEL_REGION,
-        streaming=False,
-    )
+    model = build_model(max_tokens)
 
     agent = Agent(
         model=model,
@@ -291,6 +341,11 @@ FINAL CHECK before you output: When output language is Japanese, scan your <summ
             raise
         else:
             raise error
+    except openai.APIError as error:
+        # The Responses path surfaces failures as openai SDK exceptions rather
+        # than botocore ClientError.
+        print(f"Responses API (bedrock-mantle) error: {error}")
+        raise
 
     return summary, twitter
 

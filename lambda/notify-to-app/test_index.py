@@ -11,6 +11,7 @@ import pytest
 os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 os.environ.setdefault("MODEL_ID", "test-model-id")
 os.environ.setdefault("MODEL_REGION", "us-west-2")
+os.environ.setdefault("MODEL_API_MODE", "converse")
 os.environ.setdefault("NOTIFIERS", json.dumps({
     "TestNotifier": {
         "summarizerName": "AwsSolutionsArchitectJapanese",
@@ -152,7 +153,7 @@ class TestPushNotificationFallback:
         }
         with patch("index.ssm.get_parameter", return_value={"Parameter": {"Value": "https://hooks.example.com"}}), \
              patch("index.get_blog_content", return_value=None), \
-             patch("index.summarize_blog", return_value=("summary", "detail", "twitter")) as mock_summarize, \
+             patch("index.summarize_blog", return_value=("summary", "twitter")) as mock_summarize, \
              patch("index.urllib.request.urlopen"), \
              patch("index.time.sleep"):
             index.push_notification([item])

@@ -30,6 +30,14 @@ export class WhatsNewSummaryNotifierStack extends Stack {
     // prefix. Strip it to obtain the underlying foundation model ID for IAM policy ARNs.
     const baseModelId = modelId.replace(/^(us|eu|ap)\./, '');
 
+    // "converse" calls bedrock-runtime; "responses" calls the bedrock-mantle
+    // endpoint, which some models (e.g. GPT-5.6 Terra) require exclusively.
+    const modelApiMode = this.node.tryGetContext('modelApiMode') ?? 'converse';
+    if (modelApiMode !== 'converse' && modelApiMode !== 'responses') {
+      throw new Error(`modelApiMode must be "converse" or "responses", got: ${modelApiMode}`);
+    }
+    const usesResponsesApi = modelApiMode === 'responses';
+
     const notifiers: [] = this.node.tryGetContext('notifiers');
     const summarizers: [] = this.node.tryGetContext('summarizers');
 
@@ -55,6 +63,26 @@ export class WhatsNewSummaryNotifierStack extends Stack {
               `arn:aws:bedrock:${modelRegion}:${accountId}:inference-profile/*`,
             ],
           }),
+          // The bedrock-mantle path mints a short-lived bearer token from the
+          // execution role's credentials, then creates an inference against the
+          // project. Both actions are required; CallWithBearerToken alone fails.
+          // Resource scoping follows the AWS managed policy
+          // AmazonBedrockMantleInferenceAccess: CallWithBearerToken is not
+          // resource-scopable and must use "*", CreateInference targets projects.
+          ...(usesResponsesApi
+            ? [
+                new PolicyStatement({
+                  actions: ['bedrock-mantle:CallWithBearerToken'],
+                  effect: Effect.ALLOW,
+                  resources: ['*'],
+                }),
+                new PolicyStatement({
+                  actions: ['bedrock-mantle:CreateInference'],
+                  effect: Effect.ALLOW,
+                  resources: [`arn:aws:bedrock-mantle:${modelRegion}:${accountId}:project/*`],
+                }),
+              ]
+            : []),
         ],
       })
     );
@@ -96,13 +124,16 @@ export class WhatsNewSummaryNotifierStack extends Stack {
       bundling: pythonLambdaBundling,
       handler: 'handler',
       index: 'index.py',
-      timeout: Duration.seconds(180),
+      // Reasoning models on the Responses path spend far longer per article;
+      // 180s was observed to time out, 600s leaves headroom.
+      timeout: Duration.seconds(usesResponsesApi ? 600 : 180),
       logGroup: notifyNewEntryLogGroup,
       role: notifyNewEntryRole,
       reservedConcurrentExecutions: 1,
       environment: {
         MODEL_ID: modelId,
         MODEL_REGION: modelRegion,
+        MODEL_API_MODE: modelApiMode,
         NOTIFIERS: JSON.stringify(notifiers),
         SUMMARIZERS: JSON.stringify(summarizers),
       },
