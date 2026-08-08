@@ -57,6 +57,8 @@ The project pins direct dependencies in `requirements.txt` (e.g. `package>=x.y.z
 
 For deployment instructions including Webhook URL setup, AWS Systems Manager Parameter Store configuration, language settings, and CDK commands, see [DEPLOY.md](DEPLOY.md).
 
+To change the model used for summarization, see [Switching the model](DEPLOY.md#switching-the-model). Both the Converse and Responses call paths stay in the function, so switching is a configuration change rather than a code change.
+
 ## Third Party Services
 
 This code interacts with Slack which has terms published at [Terms Page (Slack)](https://slack.com/main-services-agreement), and pricing described at [Pricing Page (Slack)](https://slack.com/pricing). You should be familiar with the pricing and confirm that your use case complies with the terms before proceeding.

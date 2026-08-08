@@ -120,6 +120,28 @@ You can change the settings by modifying the values under the `context` section 
 ## Common Settings
 * `modelRegion`: The region to use Amazon Bedrock. Enter the region code of the region you want to use from among the regions where Amazon Bedrock is available.
 * `modelId`: The model ID of the base model to be used with Amazon Bedrock. Refer to the documentation for the model ID of each model.
+* `modelApiMode`: How the model is invoked. Set `converse` for models served by the Converse API on the `bedrock-runtime` endpoint, or `responses` for models served only by the Responses API on the `bedrock-mantle` endpoint. Defaults to `converse` when omitted. `modelId` and `modelApiMode` must agree, otherwise the Lambda function raises an error on startup.
+
+### Switching the model
+
+`modelId` and `modelApiMode` are always changed together, because a model is reachable through only one of the two APIs.
+
+| Model | `modelId` | `modelApiMode` |
+| --- | --- | --- |
+| Amazon Nova Pro | `us.amazon.nova-pro-v1:0` | `converse` |
+| OpenAI GPT-5.6 Terra | `openai.gpt-5.6-terra` | `responses` |
+
+1. Edit both values in the `context` section of [cdk.json](cdk.json).
+2. Deploy with `cdk deploy`. The CDK app rejects an unknown `modelApiMode` at synth time, and the Lambda function rejects a mismatched pair at startup, so a half-finished edit fails fast rather than reaching production.
+3. Check CloudWatch Logs for the first few invocations of `NotifyNewEntry`.
+
+Notes when moving to a `responses` model:
+
+* The stack grants `bedrock-mantle:CallWithBearerToken` and `bedrock-mantle:CreateInference` only in `responses` mode. Both are required; granting only the former returns `AccessDeniedException`.
+* The Lambda timeout is raised from 180 to 600 seconds in `responses` mode, because reasoning models spend considerably longer per article.
+* Reasoning models such as GPT-5.6 Terra reject `temperature` and `top_p`. Sending either returns HTTP 400 `unsupported_parameter`, so only `max_output_tokens` and the reasoning effort are passed on that path.
+
+To roll back, restore the previous `modelId` and `modelApiMode` pair and run `cdk deploy` again. No code change is needed, because both call paths remain in the function.
 
 ## summarizers
 Configure the prompt for summarizing the input to the generative AI.
