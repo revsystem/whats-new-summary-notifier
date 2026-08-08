@@ -60,12 +60,14 @@ def build_model(max_tokens):
     """Build the Strands model for the configured API mode."""
 
     if MODEL_API_MODE == "responses":
-        # GPT-5.6 Terra rejects top_p, so only temperature is passed here.
+        # GPT-5.6 Terra rejects both top_p and temperature: as a reasoning
+        # model it only accepts their defaults, and sending either returns
+        # HTTP 400 unsupported_parameter. Determinism is instead influenced
+        # through the reasoning effort level.
         return OpenAIResponsesModel(
             model_id=MODEL_ID,
             bedrock_mantle_config={"region": MODEL_REGION},
             params={
-                "temperature": 0.1,
                 "max_output_tokens": max_tokens,
                 "reasoning": {"effort": "medium"},
             },
