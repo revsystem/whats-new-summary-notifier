@@ -127,6 +127,11 @@ export class WhatsNewSummaryNotifierStack extends Stack {
       // Reasoning models on the Responses path spend far longer per article;
       // 180s was observed to time out, 600s leaves headroom.
       timeout: Duration.seconds(usesResponsesApi ? 600 : 180),
+      // Default 128MB was permanently pegged at its ceiling (127-128MB used
+      // on every successful invocation) and caused a Runtime.OutOfMemory
+      // error in production; 512MB gives headroom for web scraping plus the
+      // boto3/strands/openai SDKs.
+      memorySize: 512,
       logGroup: notifyNewEntryLogGroup,
       role: notifyNewEntryRole,
       reservedConcurrentExecutions: 1,
