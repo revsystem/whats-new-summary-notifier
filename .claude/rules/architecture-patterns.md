@@ -69,13 +69,11 @@ CDK 側のキー名と Lambda 側のキー名は必ず一致させること。�
 
 ```python
 BedrockModel(
-    params={
-        "temperature": 0.1,
-        "top_p": 0.1,
-        "max_tokens": 4096,      # Nova Pro は max_tokens を使う
-    },
     model_id=MODEL_ID,
     region_name=MODEL_REGION,
+    temperature=0.1,
+    top_p=0.1,
+    max_tokens=4096,      # Nova Pro は max_tokens を使う
     streaming=False,
 )
 ```

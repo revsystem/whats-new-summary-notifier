@@ -74,13 +74,11 @@ def build_model(max_tokens):
         )
 
     return BedrockModel(
-        params={
-            "temperature": 0.1,
-            "top_p": 0.1,
-            "max_tokens": max_tokens
-        },
         model_id=MODEL_ID,
         region_name=MODEL_REGION,
+        temperature=0.1,
+        top_p=0.1,
+        max_tokens=max_tokens,
         streaming=False,
     )
 
