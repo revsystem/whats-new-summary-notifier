@@ -110,9 +110,11 @@ def get_blog_content(url):
     try:
         response = scraper.get(url, headers=headers, timeout=5)
         response.raise_for_status()
+        print(f"Fetched {url}: status={response.status_code}")
 
         soup = BeautifulSoup(response.text, "html.parser")
         main = soup.find("main")
+        print(f"Parsed {url}: found_main={main is not None}")
 
         return main.text if main else None
 
