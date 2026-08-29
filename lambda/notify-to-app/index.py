@@ -166,7 +166,7 @@ STRICT RULES for the X (Twitter) post:
 - NEVER use exclamation marks or show excessive excitement
 - State objective facts concisely and professionally
 - NO hashtags whatsoever
-- Keep within 270 characters, using as much of that limit as the content allows
+- Keep within 120 characters, using as much of that limit as the content allows. X/Twitter counts Japanese characters at double weight against its 280-character weighted limit, and roughly 23 more weighted characters are consumed by the article link X appends automatically, so 120 actual Japanese characters is close to the real usable maximum.
 - Use neutral, informative tone
 - Focus on factual information only
 - When writing in Japanese, use the plain/literary style (だ・である調) of a news report, not the polite style (です・ます調)
@@ -191,7 +191,7 @@ STRICT RULES for the Bluesky post:
 - Focus on factual information only
 - When writing in Japanese, use the plain/literary style (だ・である調) of a news report, not the polite style (です・ます調)
 </blueskyRules>
-<outputFormat><thinking>(detailed bullet point analysis of the AWS update)</thinking><summary>(concise professional summary of the update)</summary><twitter>(X-ready post within 270 characters following twitterRules strictly)</twitter><threads>(Threads-ready post within 480 characters following threadsRules strictly)</threads><bluesky>(Bluesky-ready post within 150 characters following blueskyRules strictly)</bluesky></outputFormat>
+<outputFormat><thinking>(detailed bullet point analysis of the AWS update)</thinking><summary>(concise professional summary of the update)</summary><twitter>(X-ready post within 120 characters following twitterRules strictly)</twitter><threads>(Threads-ready post within 480 characters following threadsRules strictly)</threads><bluesky>(Bluesky-ready post within 150 characters following blueskyRules strictly)</bluesky></outputFormat>
 Follow the instructions carefully and focus on technical accuracy and practical implications. When outputting in Japanese, ensure consistent and professional translation of all technical terms and service names.
 """
     elif summarizer_name == "Formula1ProfessionalJapanese":
@@ -299,7 +299,7 @@ When translating to Japanese, you are REQUIRED to use the following proper nouns
 - Degrees of rake: 傾斜度
 </technical_terms>
 
-CRITICAL: If any of these terms appear in the content or in your reasoning, you MUST use the exact Japanese translation provided above in your <summary> and <twitter>. Do NOT output the English form. Do NOT use a different katakana spelling. Using any other translation is strictly forbidden.
+CRITICAL: If any of these terms appear in the content or in your reasoning, you MUST use the exact Japanese translation provided above in your <summary>, <twitter>, <threads>, and <bluesky>. Do NOT output the English form. Do NOT use a different katakana spelling. Using any other translation is strictly forbidden.
 </glossary>
 <outputLanguage>In {language}.</outputLanguage>
 <summaryRule>
@@ -315,7 +315,7 @@ STRICT RULES for the X (Twitter) post:
 - NEVER use exclamation marks or show excessive excitement
 - State objective facts concisely and professionally
 - NO hashtags whatsoever
-- Keep within 270 characters, using as much of that limit as the content allows
+- Keep within 120 characters, using as much of that limit as the content allows. X/Twitter counts Japanese characters at double weight against its 280-character weighted limit, and roughly 23 more weighted characters are consumed by the article link X appends automatically, so 120 actual Japanese characters is close to the real usable maximum.
 - Use neutral, informative tone
 - Focus on factual information only
 - Avoid emotional language or superlatives
@@ -349,7 +349,7 @@ STRICT RULES for the Bluesky post:
 - If the article covers multiple topics, cover only the most important one (selected in STEP 3 of your reasoning). Do not attempt to cover all topics within the character limit.
 - State the key fact (who, what, result or decision) in one tight sentence.
 </blueskyRules>
-<outputFormat><thinking>(3-step reasoning: STEP 1 category list, STEP 2 key points per category, STEP 3 most important category for the short-form posts)</thinking><summary>(4-6 sentence journalist-style prose summary covering all significant topics; weave multiple topics naturally; no bullet points or sub-headings; all proper nouns and technical terms MUST use exact glossary forms; written in だ・である調)</summary><twitter>(X-ready post within 270 characters; if Japanese, all names/teams/terms MUST be in glossary Japanese only, written in だ・である調)</twitter><threads>(Threads-ready post within 480 characters covering more detail than the X post; if Japanese, all names/teams/terms MUST be in glossary Japanese only, written in だ・である調)</threads><bluesky>(Bluesky-ready post within 150 characters; if Japanese, all names/teams/terms MUST be in glossary Japanese only, written in だ・である調)</bluesky></outputFormat>
+<outputFormat><thinking>(3-step reasoning: STEP 1 category list, STEP 2 key points per category, STEP 3 most important category for the short-form posts)</thinking><summary>(4-6 sentence journalist-style prose summary covering all significant topics; weave multiple topics naturally; no bullet points or sub-headings; all proper nouns and technical terms MUST use exact glossary forms; written in だ・である調)</summary><twitter>(X-ready post within 120 characters; if Japanese, all names/teams/terms MUST be in glossary Japanese only, written in だ・である調)</twitter><threads>(Threads-ready post within 480 characters covering more detail than the X post; if Japanese, all names/teams/terms MUST be in glossary Japanese only, written in だ・である調)</threads><bluesky>(Bluesky-ready post within 150 characters; if Japanese, all names/teams/terms MUST be in glossary Japanese only, written in だ・である調)</bluesky></outputFormat>
 
 FINAL CHECK before you output: When output language is Japanese, scan your <summary>, <twitter>, <threads>, and <bluesky> for any English proper nouns (e.g. "Verstappen", "Ferrari", "Mercedes") or technical terms (e.g. "Qualifying", "Safety Car"). If found, replace them with the exact Japanese form from the glossary. Your response is only correct when every such term appears in the glossary form.
 """

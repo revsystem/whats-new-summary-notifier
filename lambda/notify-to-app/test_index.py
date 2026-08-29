@@ -164,6 +164,12 @@ class TestCreateSlackMessage:
         msg = index.create_slack_message(item)
         assert "article%3Ffoo%3Dbar%26baz%3Dqux" in self._threads_section(msg["text"])
 
+    def test_threads_text_is_url_encoded(self):
+        item = self._make_item(threads="AWS新機能 テスト")
+        msg = index.create_slack_message(item)
+        encoded = urllib.parse.quote("AWS新機能 テスト")
+        assert encoded in self._threads_section(msg["text"])
+
     def test_share_on_bluesky_link_is_present(self):
         item = self._make_item()
         msg = index.create_slack_message(item)
