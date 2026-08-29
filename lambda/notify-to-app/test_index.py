@@ -142,6 +142,18 @@ class TestCreateSlackMessage:
         msg = index.create_slack_message(item)
         assert "article%3Ffoo%3Dbar%26baz%3Dqux" in msg["text"] or "article" in msg["text"]
 
+    def test_share_on_threads_link_is_present(self):
+        item = self._make_item()
+        msg = index.create_slack_message(item)
+        assert "Share on Threads" in msg["text"]
+        assert "https://www.threads.com/intent/post" in msg["text"]
+
+    def test_rss_link_in_threads_url_is_encoded(self):
+        item = self._make_item(rss_link="https://example.com/article?foo=bar&baz=qux")
+        msg = index.create_slack_message(item)
+        threads_section = msg["text"].split("threads.com/intent/post", 1)[1]
+        assert "article%3Ffoo%3Dbar%26baz%3Dqux" in threads_section
+
 
 class TestPushNotificationFallback:
     def test_none_content_falls_back_to_title(self, capsys):

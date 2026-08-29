@@ -434,7 +434,8 @@ def create_slack_message(item):
         "text": f"{item['rss_time']}\n" \
                 f"<{item['rss_link']}|{item['rss_title']}>\n" \
                 f"{item['summary']}\n" \
-                f"<https://x.com/intent/tweet?url={encoded_rss_link}&text={encoded_twitter_text}|Share on X>"
+                f"<https://x.com/intent/tweet?url={encoded_rss_link}&text={encoded_twitter_text}|Share on X>\n" \
+                f"<https://www.threads.com/intent/post?url={encoded_rss_link}&text={encoded_twitter_text}|Share on Threads>"
     }
 
     return message
