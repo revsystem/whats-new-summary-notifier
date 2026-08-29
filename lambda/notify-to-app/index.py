@@ -135,7 +135,7 @@ def summarize_blog(
         summarizer_name (str): The name of the summarizer to use
 
     Returns:
-        str: The summarized text
+        tuple[str, str, str, str]: The summary, the X (Twitter) post, the Threads post, and the Bluesky post
     """
 
     print(f"Summarizing blog with summarizer: {summarizer_name}")
@@ -155,20 +155,43 @@ IMPORTANT: When writing in Japanese, use consistent and accurate translations fo
 
 Output your analysis in <thinking></thinking> tags using bullet points (each starting with "- " and ending with "\n").
 Create a concise summary following <summaryRule></summaryRule> and format according to <outputFormat></outputFormat>.
-Generate a Twitter-ready summary for the <twitter></twitter> section following <twitterRules></twitterRules>.
+Generate a post for the <twitter></twitter> section following <twitterRules></twitterRules>.
+Generate a longer post for the <threads></threads> section following <threadsRules></threadsRules>.
+Generate a post for the <bluesky></bluesky> section following <blueskyRules></blueskyRules>.
 </instruction>
 <outputLanguage>In {language}.</outputLanguage>
-<summaryRule>The final summary must be 2-3 sentences that clearly explain the new AWS feature/update, its key benefits, and target audience in a professional yet accessible tone.</summaryRule>
+<summaryRule>The final summary must be 2-3 sentences that clearly explain the new AWS feature/update, its key benefits, and target audience in a professional yet accessible tone. When writing in Japanese, use the plain/literary style (だ・である調) of a news report, not the polite style (です・ます調).</summaryRule>
 <twitterRules>
-STRICT RULES for Twitter summary:
+STRICT RULES for the X (Twitter) post:
 - NEVER use exclamation marks or show excessive excitement
 - State objective facts concisely and professionally
 - NO hashtags whatsoever
-- Keep within 200 characters
+- Keep within 270 characters, using as much of that limit as the content allows
 - Use neutral, informative tone
 - Focus on factual information only
+- When writing in Japanese, use the plain/literary style (だ・である調) of a news report, not the polite style (です・ます調)
 </twitterRules>
-<outputFormat><thinking>(detailed bullet point analysis of the AWS update)</thinking><summary>(concise professional summary of the update)</summary><twitter>(Twitter-ready summary within 200 characters following twitterRules strictly)</twitter></outputFormat>
+<threadsRules>
+STRICT RULES for the Threads post:
+- NEVER use exclamation marks or show excessive excitement
+- State objective facts concisely and professionally
+- NO hashtags whatsoever
+- Keep within 480 characters, using as much of that limit as the content allows to cover more detail than the X post
+- Use neutral, informative tone
+- Focus on factual information only
+- When writing in Japanese, use the plain/literary style (だ・である調) of a news report, not the polite style (です・ます調)
+</threadsRules>
+<blueskyRules>
+STRICT RULES for the Bluesky post:
+- NEVER use exclamation marks or show excessive excitement
+- State objective facts concisely and professionally
+- NO hashtags whatsoever
+- Keep within 150 characters, using as much of that limit as the content allows. This post will have the article URL appended after it (observed RSS article URLs run up to ~170 characters), so leave that headroom within the 300-character Bluesky post limit.
+- Use neutral, informative tone
+- Focus on factual information only
+- When writing in Japanese, use the plain/literary style (だ・である調) of a news report, not the polite style (です・ます調)
+</blueskyRules>
+<outputFormat><thinking>(detailed bullet point analysis of the AWS update)</thinking><summary>(concise professional summary of the update)</summary><twitter>(X-ready post within 270 characters following twitterRules strictly)</twitter><threads>(Threads-ready post within 480 characters following threadsRules strictly)</threads><bluesky>(Bluesky-ready post within 150 characters following blueskyRules strictly)</bluesky></outputFormat>
 Follow the instructions carefully and focus on technical accuracy and practical implications. When outputting in Japanese, ensure consistent and professional translation of all technical terms and service names.
 """
     elif summarizer_name == "Formula1ProfessionalJapanese":
@@ -176,7 +199,7 @@ Follow the instructions carefully and focus on technical accuracy and practical 
 <persona>You are a professional {persona} with extensive knowledge of F1 racing, teams, drivers, regulations, and the motorsport industry. </persona>
 
 <glossary_compliance_priority>
-CRITICAL - READ FIRST: When your output language is Japanese, every proper noun (driver names, team names, officials) and every technical term listed in <glossary> MUST appear in your <summary> and <twitter> ONLY in the exact Japanese form given in the glossary. Using the English form or any other Japanese spelling in the final output is forbidden. This rule overrides any other preference; follow the glossary exactly.
+CRITICAL - READ FIRST: When your output language is Japanese, every proper noun (driver names, team names, officials) and every technical term listed in <glossary> MUST appear in your <summary>, <twitter>, <threads>, and <bluesky> ONLY in the exact Japanese form given in the glossary. Using the English form or any other Japanese spelling in the final output is forbidden. This rule overrides any other preference; follow the glossary exactly.
 </glossary_compliance_priority>
 
 <instruction>
@@ -198,13 +221,15 @@ STEP 2: For each category marked true, extract key points:
 - Regulatory context or technical background
 - One notable quote (one sentence max) if relevant
 
-STEP 3: Select the single most important category for the twitter output and briefly explain why it is the most newsworthy item.
+STEP 3: Select the single most important category for the short-form posts and briefly explain why it is the most newsworthy item.
 
 Output your reasoning in <thinking></thinking> tags following the three steps above.
 Create a summary following <summaryRule></summaryRule> and format according to <outputFormat></outputFormat>.
-Generate a Twitter-ready summary for the <twitter></twitter> section following <twitterRules></twitterRules>.
+Generate a post for the <twitter></twitter> section following <twitterRules></twitterRules>.
+Generate a longer post for the <threads></threads> section following <threadsRules></threadsRules>.
+Generate a post for the <bluesky></bluesky> section following <blueskyRules></blueskyRules>.
 
-When writing in Japanese: Use ONLY the Japanese translations from the <glossary> for names, teams, and technical terms. Do NOT use English names in <summary> or <twitter>. Do NOT invent your own katakana; use the glossary form exactly.
+When writing in Japanese: Use ONLY the Japanese translations from the <glossary> for names, teams, and technical terms. Do NOT use English names in <summary>, <twitter>, <threads>, or <bluesky>. Do NOT invent your own katakana; use the glossary form exactly.
 </instruction>
 <glossary>
 MANDATORY TRANSLATION RULES - You MUST follow these translations exactly:
@@ -282,25 +307,51 @@ Write a flowing 4-6 sentence summary in the style of a professional F1 journalis
 Cover all significant topics present in the article—don't reduce a multi-topic article to a single angle.
 Weave topics together naturally in prose—do not use bullet points or sub-headings.
 The summary should be engaging enough that readers who follow F1 would want to share it.
-Write as if reporting for a Japanese motorsport publication.
+Write as if reporting for a Japanese motorsport publication, using the plain/literary style (だ・である調) of Japanese news writing, not the polite style (です・ます調).
 When writing in Japanese: use ONLY the Japanese forms from the glossary for all driver names, team names, and technical terms—no English names in the summary.
 </summaryRule>
 <twitterRules>
-STRICT RULES for Twitter summary:
+STRICT RULES for the X (Twitter) post:
 - NEVER use exclamation marks or show excessive excitement
 - State objective facts concisely and professionally
 - NO hashtags whatsoever
-- Keep within 200 characters
+- Keep within 270 characters, using as much of that limit as the content allows
 - Use neutral, informative tone
 - Focus on factual information only
 - Avoid emotional language or superlatives
-- When writing in Japanese: use ONLY glossary Japanese for names, teams, and terms—no English in the tweet
-- If the article covers multiple topics, tweet about only the most important one (selected in STEP 3 of your reasoning). Do not attempt to cover all topics in 200 characters.
+- When writing in Japanese: use ONLY glossary Japanese for names, teams, and terms—no English in the post; use the plain/literary style (だ・である調), not the polite style (です・ます調)
+- If the article covers multiple topics, cover only the most important one (selected in STEP 3 of your reasoning). Do not attempt to cover all topics within the character limit.
 - State the key fact (who, what, result or decision) in one tight sentence.
 </twitterRules>
-<outputFormat><thinking>(3-step reasoning: STEP 1 category list, STEP 2 key points per category, STEP 3 most important category for twitter)</thinking><summary>(4-6 sentence journalist-style prose summary covering all significant topics; weave multiple topics naturally; no bullet points or sub-headings; all proper nouns and technical terms MUST use exact glossary forms)</summary><twitter>(Twitter-ready summary within 200 characters; if Japanese, all names/teams/terms MUST be in glossary Japanese only)</twitter></outputFormat>
+<threadsRules>
+STRICT RULES for the Threads post:
+- NEVER use exclamation marks or show excessive excitement
+- State objective facts concisely and professionally
+- NO hashtags whatsoever
+- Keep within 480 characters, using as much of that limit as the content allows to cover more detail than the X post
+- Use neutral, informative tone
+- Focus on factual information only
+- Avoid emotional language or superlatives
+- When writing in Japanese: use ONLY glossary Japanese for names, teams, and terms—no English in the post; use the plain/literary style (だ・である調), not the polite style (です・ます調)
+- The article's most important topic (selected in STEP 3 of your reasoning) must be the primary focus, but you may cover secondary topics if space allows.
+- Lead with the key fact (who, what, result or decision), then add supporting detail.
+</threadsRules>
+<blueskyRules>
+STRICT RULES for the Bluesky post:
+- NEVER use exclamation marks or show excessive excitement
+- State objective facts concisely and professionally
+- NO hashtags whatsoever
+- Keep within 150 characters, using as much of that limit as the content allows. This post will have the article URL appended after it (observed RSS article URLs run up to ~170 characters), so leave that headroom within the 300-character Bluesky post limit.
+- Use neutral, informative tone
+- Focus on factual information only
+- Avoid emotional language or superlatives
+- When writing in Japanese: use ONLY glossary Japanese for names, teams, and terms—no English in the post; use the plain/literary style (だ・である調), not the polite style (です・ます調)
+- If the article covers multiple topics, cover only the most important one (selected in STEP 3 of your reasoning). Do not attempt to cover all topics within the character limit.
+- State the key fact (who, what, result or decision) in one tight sentence.
+</blueskyRules>
+<outputFormat><thinking>(3-step reasoning: STEP 1 category list, STEP 2 key points per category, STEP 3 most important category for the short-form posts)</thinking><summary>(4-6 sentence journalist-style prose summary covering all significant topics; weave multiple topics naturally; no bullet points or sub-headings; all proper nouns and technical terms MUST use exact glossary forms; written in だ・である調)</summary><twitter>(X-ready post within 270 characters; if Japanese, all names/teams/terms MUST be in glossary Japanese only, written in だ・である調)</twitter><threads>(Threads-ready post within 480 characters covering more detail than the X post; if Japanese, all names/teams/terms MUST be in glossary Japanese only, written in だ・である調)</threads><bluesky>(Bluesky-ready post within 150 characters; if Japanese, all names/teams/terms MUST be in glossary Japanese only, written in だ・である調)</bluesky></outputFormat>
 
-FINAL CHECK before you output: When output language is Japanese, scan your <summary> and <twitter> for any English proper nouns (e.g. "Verstappen", "Ferrari", "Mercedes") or technical terms (e.g. "Qualifying", "Safety Car"). If found, replace them with the exact Japanese form from the glossary. Your response is only correct when every such term appears in the glossary form.
+FINAL CHECK before you output: When output language is Japanese, scan your <summary>, <twitter>, <threads>, and <bluesky> for any English proper nouns (e.g. "Verstappen", "Ferrari", "Mercedes") or technical terms (e.g. "Qualifying", "Safety Car"). If found, replace them with the exact Japanese form from the glossary. Your response is only correct when every such term appears in the glossary form.
 """
 
     max_tokens = 4096
@@ -326,12 +377,16 @@ FINAL CHECK before you output: When output language is Japanese, scan your <summ
 
         summary_matches = re.findall(r"<summary>([\s\S]*?)</summary>", outputText)
         twitter_matches = re.findall(r"<twitter>([\s\S]*?)</twitter>", outputText)
+        threads_matches = re.findall(r"<threads>([\s\S]*?)</threads>", outputText)
+        bluesky_matches = re.findall(r"<bluesky>([\s\S]*?)</bluesky>", outputText)
 
-        if not summary_matches or not twitter_matches:
+        if not summary_matches or not twitter_matches or not threads_matches or not bluesky_matches:
             raise ValueError(f"Response missing required XML tags: {outputText[:300]}")
 
         summary = summary_matches[0]
         twitter = twitter_matches[0]
+        threads = threads_matches[0]
+        bluesky = bluesky_matches[0]
     except ClientError as error:
         if error.response["Error"]["Code"] == "AccessDeniedException":
             print(
@@ -349,7 +404,7 @@ FINAL CHECK before you output: When output language is Japanese, scan your <summ
         print(f"Responses API (bedrock-mantle) error: {error}")
         raise
 
-    return summary, twitter
+    return summary, twitter, threads, bluesky
 
 
 def push_notification(item_list):
@@ -376,13 +431,17 @@ def push_notification(item_list):
 
         # Summarize the blog
         summarizer = SUMMARIZERS[notifier["summarizerName"]]
-        summary, twitter = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"], summarizer_name=notifier["summarizerName"])
+        summary, twitter, threads, bluesky = summarize_blog(content, language=summarizer["outputLanguage"], persona=summarizer["persona"], summarizer_name=notifier["summarizerName"])
 
         # Add the summary text to notified message
         item["summary"] = summary
         item["twitter"] = twitter
+        item["threads"] = threads
+        item["bluesky"] = bluesky
 
         item["twitter"] = item["twitter"].replace("\n", "")
+        item["threads"] = item["threads"].replace("\n", "")
+        item["bluesky"] = item["bluesky"].replace("\n", "")
         msg = create_slack_message(item)
 
         encoded_msg = json.dumps(msg).encode("utf-8")
@@ -427,6 +486,13 @@ def create_slack_message(item):
     # encoded_twitter_text = urllib.parse.quote("🤖 < " + item["twitter"] + " (生成AIによる要約ポスト)")
     encoded_twitter_text = urllib.parse.quote(item["twitter"])
 
+    # URL encode the threads text
+    encoded_threads_text = urllib.parse.quote(item["threads"])
+
+    # Bluesky's compose intent has no separate url parameter, so the article
+    # link is appended to the post text before encoding.
+    encoded_bluesky_text = urllib.parse.quote(f"{item['bluesky']} {item['rss_link']}")
+
     # URL encode the RSS link separately
     encoded_rss_link = urllib.parse.quote(item["rss_link"])
 
@@ -435,7 +501,8 @@ def create_slack_message(item):
                 f"<{item['rss_link']}|{item['rss_title']}>\n" \
                 f"{item['summary']}\n" \
                 f"<https://x.com/intent/tweet?url={encoded_rss_link}&text={encoded_twitter_text}|Share on X>\n" \
-                f"<https://www.threads.com/intent/post?url={encoded_rss_link}&text={encoded_twitter_text}|Share on Threads>"
+                f"<https://www.threads.com/intent/post?url={encoded_rss_link}&text={encoded_threads_text}|Share on Threads>\n" \
+                f"<https://bsky.app/intent/compose?text={encoded_bluesky_text}|Share on Bluesky>"
     }
 
     return message

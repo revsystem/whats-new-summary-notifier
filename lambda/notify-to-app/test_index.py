@@ -110,7 +110,7 @@ class TestGetNewEntries:
 
 
 class TestCreateSlackMessage:
-    def _make_item(self, twitter="Test tweet", rss_link="https://example.com/article"):
+    def _make_item(self, twitter="Test tweet", threads="Test threads post", bluesky="Test bluesky post", rss_link="https://example.com/article"):
         return {
             "rss_time": "2024-01-01T00:00:00",
             "rss_title": "Test Article",
@@ -118,7 +118,18 @@ class TestCreateSlackMessage:
             "summary": "Summary text",
             "detail": "Detail text",
             "twitter": twitter,
+            "threads": threads,
+            "bluesky": bluesky,
         }
+
+    def _x_section(self, text):
+        return text.split("x.com/intent/tweet", 1)[1].split("threads.com/intent/post", 1)[0]
+
+    def _threads_section(self, text):
+        return text.split("threads.com/intent/post", 1)[1].split("bsky.app/intent/compose", 1)[0]
+
+    def _bluesky_section(self, text):
+        return text.split("bsky.app/intent/compose", 1)[1]
 
     def test_message_contains_rss_link(self):
         item = self._make_item()
@@ -129,7 +140,7 @@ class TestCreateSlackMessage:
         item = self._make_item(twitter="AWS新機能 テスト")
         msg = index.create_slack_message(item)
         encoded = urllib.parse.quote("AWS新機能 テスト")
-        assert encoded in msg["text"]
+        assert encoded in self._x_section(msg["text"])
 
     def test_share_on_x_link_is_present(self):
         item = self._make_item()
@@ -151,8 +162,47 @@ class TestCreateSlackMessage:
     def test_rss_link_in_threads_url_is_encoded(self):
         item = self._make_item(rss_link="https://example.com/article?foo=bar&baz=qux")
         msg = index.create_slack_message(item)
-        threads_section = msg["text"].split("threads.com/intent/post", 1)[1]
-        assert "article%3Ffoo%3Dbar%26baz%3Dqux" in threads_section
+        assert "article%3Ffoo%3Dbar%26baz%3Dqux" in self._threads_section(msg["text"])
+
+    def test_share_on_bluesky_link_is_present(self):
+        item = self._make_item()
+        msg = index.create_slack_message(item)
+        assert "Share on Bluesky" in msg["text"]
+        assert "https://bsky.app/intent/compose" in msg["text"]
+
+    def test_rss_link_is_embedded_in_bluesky_text(self):
+        # Bluesky's compose intent has no separate url parameter, so the
+        # article link must be embedded inside the text parameter itself.
+        item = self._make_item(rss_link="https://example.com/article?foo=bar&baz=qux")
+        msg = index.create_slack_message(item)
+        assert "article%3Ffoo%3Dbar%26baz%3Dqux" in self._bluesky_section(msg["text"])
+
+    def test_bluesky_text_is_url_encoded(self):
+        item = self._make_item(bluesky="AWS新機能 テスト")
+        msg = index.create_slack_message(item)
+        encoded = urllib.parse.quote("AWS新機能 テスト")
+        assert encoded in self._bluesky_section(msg["text"])
+
+    def test_share_texts_are_distinct_per_platform(self):
+        item = self._make_item(
+            twitter="Short X post",
+            threads="Longer Threads post carrying more of the summary than the X post does",
+            bluesky="Bluesky-length post with its own wording distinct from the other two",
+        )
+        msg = index.create_slack_message(item)
+
+        x_section = self._x_section(msg["text"])
+        threads_section = self._threads_section(msg["text"])
+        bluesky_section = self._bluesky_section(msg["text"])
+
+        assert urllib.parse.quote("Short X post") in x_section
+        assert urllib.parse.quote("Longer Threads post carrying more of the summary than the X post does") in threads_section
+        assert urllib.parse.quote("Bluesky-length post with its own wording distinct from the other two") in bluesky_section
+
+        assert urllib.parse.quote("Longer Threads post carrying more of the summary than the X post does") not in x_section
+        assert urllib.parse.quote("Short X post") not in threads_section
+        assert urllib.parse.quote("Bluesky-length post with its own wording distinct from the other two") not in x_section
+        assert urllib.parse.quote("Bluesky-length post with its own wording distinct from the other two") not in threads_section
 
 
 class TestPushNotificationFallback:
@@ -165,7 +215,7 @@ class TestPushNotificationFallback:
         }
         with patch("index.ssm.get_parameter", return_value={"Parameter": {"Value": "https://hooks.example.com"}}), \
              patch("index.get_blog_content", return_value=None), \
-             patch("index.summarize_blog", return_value=("summary", "twitter")) as mock_summarize, \
+             patch("index.summarize_blog", return_value=("summary", "twitter", "threads", "bluesky")) as mock_summarize, \
              patch("index.urllib.request.urlopen"), \
              patch("index.time.sleep"):
             index.push_notification([item])
