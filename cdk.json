@@ -27,11 +27,11 @@
                 "persona": "solutions architect in AWS"
             },
             "AwsSolutionsArchitectJapanese": {
-                "outputLanguage": "Japanese. Each sentence must be output in polite and formal desu/masu style",
+                "outputLanguage": "Japanese. Each sentence must be output in the plain/literary da/dearu style (だ・である調), not the polite desu/masu style",
                 "persona": "solutions architect in AWS"
             },
             "Formula1ProfessionalJapanese": {
-                "outputLanguage": "Japanese. Each sentence must be output in polite and formal desu/masu style",
+                "outputLanguage": "Japanese. Each sentence must be output in the plain/literary da/dearu style (だ・である調), not the polite desu/masu style",
                 "persona": "You are a Formula 1 journalist. And you are a fan of Formula 1"
             }
         },
