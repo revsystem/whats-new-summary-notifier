@@ -124,14 +124,17 @@ You can change the settings by modifying the values under the `context` section 
 
 ### Switching the model
 
-`modelId` and `modelApiMode` are always changed together, because a model is reachable through only one of the two APIs.
+Each `modelId` below is reachable through only one of the two APIs, so whenever you change `modelId`, check that `modelApiMode` still matches it. Moving between two models that share a mode needs only the `modelId` edit.
 
 | Model | `modelId` | `modelApiMode` |
 | --- | --- | --- |
 | Amazon Nova Pro | `us.amazon.nova-pro-v1:0` | `converse` |
 | OpenAI GPT-5.6 Terra | `openai.gpt-5.6-terra` | `responses` |
+| OpenAI GPT-5.6 Luna | `openai.gpt-5.6-luna` | `responses` |
 
-1. Edit both values in the `context` section of [cdk.json](cdk.json).
+The GPT-5.6 models are also served by the Converse API on `bedrock-runtime`, but only under a cross-Region inference profile ID (such as `us.openai.gpt-5.6-luna`) and only with `bedrock:InvokeModel` on `project/default`, which this stack does not grant. The bare model IDs above therefore go through `responses`.
+
+1. Edit the affected values in the `context` section of [cdk.json](cdk.json).
 2. Deploy with `cdk deploy`. The CDK app rejects an unknown `modelApiMode` at synth time, and the Lambda function rejects a mismatched pair at startup, so a half-finished edit fails fast rather than reaching production.
 3. Check CloudWatch Logs for the first few invocations of `NotifyNewEntry`.
 

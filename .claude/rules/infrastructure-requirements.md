@@ -14,9 +14,14 @@
 | キー | 現在値 | 説明 |
 |------|--------|------|
 | `modelRegion` | `us-west-2` | Bedrock 推論リージョン |
-| `modelId` | `us.amazon.nova-pro-v1:0` | クロスリージョン推論プロファイル ID |
+| `modelId` | `openai.gpt-5.6-luna` | 推論モデルの model ID |
+| `modelApiMode` | `responses` | 呼び出し方式 (`converse` / `responses`) |
 
-`modelId` の `us.` プレフィックスはクロスリージョン推論プロファイルを示す。CDK スタックは IAM ポリシー生成時にこのプレフィックスを除去してベースモデル ID を取得する。
+`modelId` と `modelApiMode` は対応していなければならない。`converse` は `bedrock-runtime` の Converse API、`responses` は `bedrock-mantle` の Responses API を使う。不正な `modelApiMode` は CDK synth 時に、`modelId` との不一致は Lambda 起動時 (`validate_model_config`) に検出される。Responses 経路の model ID は `lambda/notify-to-app/index.py` の `RESPONSES_ONLY_MODEL_IDS` に登録する。
+
+`modelId` に `us.` プレフィックスが付く場合はクロスリージョン推論プロファイルを示す。CDK スタックは IAM ポリシー生成時にこのプレフィックスを除去してベースモデル ID を取得する。
+
+`responses` 時はスタックが `bedrock-mantle:CallWithBearerToken` と `bedrock-mantle:CreateInference` を追加で付与し、notify-to-app のタイムアウトを 600 秒へ引き上げる。切り替え手順の詳細は `DEPLOY_ja.md` の「モデルの切り替え手順」を参照する。
 
 ## SSM パラメータ
 
@@ -52,10 +57,10 @@ Bedrock Marketplace経由のサードパーティモデル(GPT-5.6 Terra等)の�
 
 | Lambda | タイムアウト |
 |--------|-------------|
-| notify-to-app | 180 秒 |
+| notify-to-app | 600 秒 (`modelApiMode=responses` 時) / 180 秒 (`converse` 時) |
 | rss-crawler | 60 秒 |
 
-Bedrock の推論と Web スクレイピングを含むため notify-to-app のタイムアウトは長め。変更する場合はレート制限との兼ね合いを考慮する。
+Bedrock の推論と Web スクレイピングを含むため notify-to-app のタイムアウトは長め。`responses` 経路は推論モデルで所要時間が伸びるためスタックが自動的に 600 秒へ引き上げる (`lib/whats-new-summary-notifier-stack.ts`)。変更する場合はレート制限との兼ね合いを考慮する。メモリは 512MB (OOM 対策で 256MB から引き上げ済み)。
 
 ## cdk.json の notifier 設定構造
 
