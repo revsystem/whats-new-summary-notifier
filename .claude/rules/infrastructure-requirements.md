@@ -38,6 +38,16 @@ Lambda のロググループ名は CDK で固定値として設定されてい�
 - NewsCrawler: `/aws/lambda/newsCrawler`
 - 保持期間: 2 週間 (`RetentionDays.TWO_WEEKS`)
 
+## Cost Explorer でのモデルコスト集計
+
+Bedrock Marketplace経由のサードパーティモデル(GPT-5.6 Terra等)の実コストは、AWS Cost Explorerで`SERVICE`ディメンションを`Amazon Bedrock`でフィルタしても捕捉できず`$0`と表示される。これらのモデルは`<モデル名> (Amazon Bedrock Edition)`という独立したサービス名(例: `OpenAI GPT-5.6 Terra (Amazon Bedrock Edition)`)で課金されるため。
+
+コスト調査の手順:
+
+1. まず`--group-by Type=DIMENSION,Key=SERVICE`でサービス名フィルタなしに集計し、実際のサービス名を確認する
+2. 判明したサービス名で`--filter '{"Dimensions":{"Key":"SERVICE","Values":["<サービス名>"]}}'`を指定して日次コストを取得する
+3. `USAGE_TYPE`でさらに group-by すると `cache_write_tokens_30m_standard` / `input_tokens_standard` / `output_tokens_standard` / `cache_read_tokens_standard` に分解できる。`UsageQuantity`は百万トークン単位の実数(例: `0.000858` = 858トークン)
+
 ## Lambda タイムアウト設定
 
 | Lambda | タイムアウト |
