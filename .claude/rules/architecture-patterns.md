@@ -98,6 +98,7 @@ BedrockModel(
 ```python
 summary_matches = re.findall(r"<summary>([\s\S]*?)</summary>", outputText)
 twitter_matches = re.findall(r"<twitter>([\s\S]*?)</twitter>", outputText)
+# threads / bluesky も同じ形で抽出する
 ```
 
 ## F1 グロッサリー

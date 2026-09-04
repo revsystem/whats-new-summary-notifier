@@ -136,7 +136,7 @@ cdk destroy --profile your-profile-name
 ## 共通設定
 * `modelRegion`: Amazon Bedrock を利用するリージョン。Amazon Bedrock を利用可能なリージョンの中から、利用したいリージョンのリージョンコードを入力してください。
 * `modelId`: Amazon Bedrock で利用する基盤モデルの model ID。各モデルの model ID はドキュメントを参照ください。
-* `modelApiMode`: モデルの呼び出し方式。`bedrock-runtime` エンドポイントの Converse API で提供されるモデルは `converse`、`bedrock-mantle` エンドポイントの Responses API でのみ提供されるモデルは `responses` を指定します。省略時は `converse` として扱われます。`modelId` と `modelApiMode` が対応していない場合、Lambda 関数は起動時にエラーになります。
+* `modelApiMode`: モデルの呼び出し方式。`bedrock-runtime` エンドポイントの Converse API で呼び出す `modelId` は `converse`、`bedrock-mantle` エンドポイントの Responses API で呼び出す `modelId` は `responses` を指定します。省略時は `converse` として扱われます。`modelId` と `modelApiMode` が対応していない場合、Lambda 関数は起動時にエラーになります。
 
 ### モデルの切り替え手順
 

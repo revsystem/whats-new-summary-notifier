@@ -248,3 +248,6 @@ class TestValidateModelConfig:
     def test_unknown_api_mode_is_rejected(self):
         with pytest.raises(ValueError, match="Unsupported MODEL_API_MODE"):
             index.validate_model_config("openai.gpt-5.6-luna", "invoke")
+
+    def test_converse_model_accepts_converse_mode(self):
+        index.validate_model_config("us.amazon.nova-pro-v1:0", "converse")
