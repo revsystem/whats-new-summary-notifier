@@ -231,3 +231,20 @@ class TestPushNotificationFallback:
         assert call_args[0][0] == "Fallback Title"
         captured = capsys.readouterr()
         assert "Falling back to title only" in captured.out
+
+
+class TestValidateModelConfig:
+    def test_responses_only_model_accepts_responses_mode(self):
+        index.validate_model_config("openai.gpt-5.6-luna", "responses")
+
+    def test_responses_only_model_rejects_converse_mode(self):
+        with pytest.raises(ValueError, match="only available through the Responses API"):
+            index.validate_model_config("openai.gpt-5.6-luna", "converse")
+
+    def test_converse_model_rejects_responses_mode(self):
+        with pytest.raises(ValueError, match="not registered as a Responses-only model"):
+            index.validate_model_config("us.amazon.nova-pro-v1:0", "responses")
+
+    def test_unknown_api_mode_is_rejected(self):
+        with pytest.raises(ValueError, match="Unsupported MODEL_API_MODE"):
+            index.validate_model_config("openai.gpt-5.6-luna", "invoke")

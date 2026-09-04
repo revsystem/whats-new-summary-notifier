@@ -29,9 +29,12 @@ SUMMARIZERS = json.loads(os.environ["SUMMARIZERS"])
 
 ssm = boto3.client("ssm")
 
-# Models that are only served through the Responses API on bedrock-mantle.
+# Model IDs that are only served through the Responses API on bedrock-mantle.
+# The GPT-5.6 models reach Converse only through a cross-Region inference
+# profile ID (us.openai.gpt-5.6-*), which is a different model ID and needs an
+# IAM grant this stack does not create, so their bare IDs are Responses-only.
 # Add new Responses-only model IDs here.
-RESPONSES_ONLY_MODEL_IDS = frozenset({"openai.gpt-5.6-terra"})
+RESPONSES_ONLY_MODEL_IDS = frozenset({"openai.gpt-5.6-terra", "openai.gpt-5.6-luna"})
 
 
 def validate_model_config(model_id, model_api_mode):
@@ -62,8 +65,8 @@ def build_model(max_tokens):
     if MODEL_API_MODE == "responses":
         # GPT-5.6 Terra rejects both top_p and temperature: as a reasoning
         # model it only accepts their defaults, and sending either returns
-        # HTTP 400 unsupported_parameter. Determinism is instead influenced
-        # through the reasoning effort level.
+        # HTTP 400 unsupported_parameter. This path therefore passes neither,
+        # and influences determinism through the reasoning effort instead.
         return OpenAIResponsesModel(
             model_id=MODEL_ID,
             bedrock_mantle_config={"region": MODEL_REGION},
