@@ -137,16 +137,17 @@ def _filter_glossary_names(prompt_data, blog_body):
 
     start = prompt_data.find("<names>")
     end = prompt_data.find("</names>")
-    if start == -1 or end == -1:
+    if start == -1 or end == -1 or not blog_body:
         return prompt_data
 
     body_lower = blog_body.lower()
     kept = []
     for line in prompt_data[start + len("<names>") : end].strip().split("\n"):
         english_name = line.lstrip("- ").split(":")[0].strip()
-        # Articles usually use the surname alone, so match on any long token.
-        tokens = [t for t in english_name.split() if len(t) >= 4]
-        if any(t.lower() in body_lower for t in tokens):
+        # Match on the surname: articles rarely use a driver's first name
+        # alone, and two drivers can share one ("Kimi" Antonelli and Räikkönen).
+        surname = english_name.split()[-1] if english_name.split() else ""
+        if surname and surname.lower() in body_lower:
             kept.append(line)
 
     if not kept:

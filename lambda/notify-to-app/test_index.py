@@ -275,6 +275,20 @@ class TestFilterGlossaryNames:
         result = index._filter_glossary_names(self.PROMPT, "Norris topped the session.")
         assert "ランド・ノリス" in result
 
+    def test_shared_first_name_does_not_pull_in_another_driver(self):
+        prompt = (
+            "<names>\n"
+            "- Kimi Antonelli: キミ・アントネッリ\n"
+            "- Kimi Räikkönen: キミ・ライコネン\n"
+            "</names>"
+        )
+        result = index._filter_glossary_names(prompt, "Kimi Antonelli was fourth.")
+        assert "キミ・アントネッリ" in result
+        assert "キミ・ライコネン" not in result
+
+    def test_empty_body_leaves_the_glossary_alone(self):
+        assert index._filter_glossary_names(self.PROMPT, "") == self.PROMPT
+
     def test_matching_is_case_insensitive(self):
         result = index._filter_glossary_names(self.PROMPT, "VERSTAPPEN won again.")
         assert "マックス・フェルスタッペン" in result
