@@ -251,3 +251,39 @@ class TestValidateModelConfig:
 
     def test_converse_model_accepts_converse_mode(self):
         index.validate_model_config("us.amazon.nova-pro-v1:0", "converse")
+
+
+class TestFilterGlossaryNames:
+    PROMPT = (
+        "before\n<names>\n"
+        "- Max Verstappen: マックス・フェルスタッペン\n"
+        "- Yuki Tsunoda: 角田裕毅\n"
+        "- Lando Norris: ランド・ノリス\n"
+        "</names>\nafter"
+    )
+
+    def test_keeps_only_people_the_article_mentions(self):
+        result = index._filter_glossary_names(
+            self.PROMPT, "Lando Norris was sixth in FP1 at Monza."
+        )
+        assert "ランド・ノリス" in result
+        assert "角田裕毅" not in result
+        assert "マックス・フェルスタッペン" not in result
+        assert result.startswith("before") and result.endswith("after")
+
+    def test_matches_on_surname_alone(self):
+        result = index._filter_glossary_names(self.PROMPT, "Norris topped the session.")
+        assert "ランド・ノリス" in result
+
+    def test_matching_is_case_insensitive(self):
+        result = index._filter_glossary_names(self.PROMPT, "VERSTAPPEN won again.")
+        assert "マックス・フェルスタッペン" in result
+
+    def test_keeps_every_name_when_none_match(self):
+        result = index._filter_glossary_names(self.PROMPT, "A story with no drivers.")
+        assert "角田裕毅" in result
+        assert "ランド・ノリス" in result
+
+    def test_prompt_without_names_section_is_untouched(self):
+        prompt = "no glossary here"
+        assert index._filter_glossary_names(prompt, "Norris") == prompt
