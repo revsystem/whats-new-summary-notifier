@@ -6,6 +6,7 @@ import os
 import re
 import time
 import traceback
+import unicodedata
 import urllib.parse
 import urllib.request
 
@@ -122,6 +123,58 @@ def get_blog_content(url):
     except Exception as e:
         print(f"Error accessing {url}: {e}")
         return None
+
+
+def _fold_accents(text):
+    """Drop diacritics so Raikkonen matches Räikkönen."""
+
+    decomposed = unicodedata.normalize("NFD", text)
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
+def _filter_glossary_names(prompt_data, blog_body):
+    """Narrow the glossary's <names> list to people the article mentions.
+
+    The glossary doubles as a roster of well-known drivers, and the prompt tells
+    the model in several places that names MUST come from it. A model can
+    satisfy that by writing about a driver the glossary lists but the article
+    never mentions: GPT-5.6 Luna rewrote a Lando Norris article around 角田裕毅
+    in production. Dropping the absent entries removes that option. No Japanese
+    spelling is changed, so the glossary itself is untouched.
+    """
+
+    start = prompt_data.find("<names>")
+    end = prompt_data.find("</names>")
+    if start == -1 or end == -1 or not blog_body:
+        return prompt_data
+
+    body = _fold_accents(blog_body)
+    kept = []
+    for line in prompt_data[start + len("<names>") : end].strip().split("\n"):
+        english_name = line.lstrip("- ").split(":")[0].strip()
+        # Match on the surname: articles rarely use a driver's first name
+        # alone, and two drivers can share one ("Kimi" Antonelli and Räikkönen).
+        surname = english_name.split()[-1] if english_name.split() else ""
+        if not surname:
+            continue
+        # Whole word only, so the verb "strolled" does not keep Lance Stroll,
+        # and accent-folded, because articles write Raikkonen for Räikkönen.
+        pattern = rf"\b{re.escape(_fold_accents(surname))}\b"
+        if re.search(pattern, body, re.IGNORECASE):
+            kept.append(line)
+
+    if not kept:
+        # Nothing matched: the article may name people in a form we do not
+        # recognise, so keep the full glossary rather than dropping it.
+        return prompt_data
+
+    return (
+        prompt_data[: start + len("<names>")]
+        + "\n"
+        + "\n".join(kept)
+        + "\n"
+        + prompt_data[end:]
+    )
 
 
 def summarize_blog(
@@ -356,6 +409,8 @@ STRICT RULES for the Bluesky post:
 
 FINAL CHECK before you output: When output language is Japanese, scan your <summary>, <twitter>, <threads>, and <bluesky> for any English proper nouns (e.g. "Verstappen", "Ferrari", "Mercedes") or technical terms (e.g. "Qualifying", "Safety Car"). If found, replace them with the exact Japanese form from the glossary. Your response is only correct when every such term appears in the glossary form.
 """
+
+    prompt_data = _filter_glossary_names(prompt_data, blog_body)
 
     max_tokens = 4096
 

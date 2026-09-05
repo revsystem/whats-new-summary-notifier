@@ -251,3 +251,64 @@ class TestValidateModelConfig:
 
     def test_converse_model_accepts_converse_mode(self):
         index.validate_model_config("us.amazon.nova-pro-v1:0", "converse")
+
+
+class TestFilterGlossaryNames:
+    PROMPT = (
+        "before\n<names>\n"
+        "- Max Verstappen: マックス・フェルスタッペン\n"
+        "- Yuki Tsunoda: 角田裕毅\n"
+        "- Lando Norris: ランド・ノリス\n"
+        "</names>\nafter"
+    )
+
+    def test_keeps_only_people_the_article_mentions(self):
+        result = index._filter_glossary_names(
+            self.PROMPT, "Lando Norris was sixth in FP1 at Monza."
+        )
+        assert "ランド・ノリス" in result
+        assert "角田裕毅" not in result
+        assert "マックス・フェルスタッペン" not in result
+        assert result.startswith("before") and result.endswith("after")
+
+    def test_matches_on_surname_alone(self):
+        result = index._filter_glossary_names(self.PROMPT, "Norris topped the session.")
+        assert "ランド・ノリス" in result
+
+    def test_shared_first_name_does_not_pull_in_another_driver(self):
+        prompt = (
+            "<names>\n"
+            "- Kimi Antonelli: キミ・アントネッリ\n"
+            "- Kimi Räikkönen: キミ・ライコネン\n"
+            "</names>"
+        )
+        result = index._filter_glossary_names(prompt, "Kimi Antonelli was fourth.")
+        assert "キミ・アントネッリ" in result
+        assert "キミ・ライコネン" not in result
+
+    def test_empty_body_leaves_the_glossary_alone(self):
+        assert index._filter_glossary_names(self.PROMPT, "") == self.PROMPT
+
+    def test_surname_must_be_a_whole_word(self):
+        prompt = "<names>\n- Lance Stroll: ランス・ストロール\n- Lando Norris: ランド・ノリス\n</names>"
+        result = index._filter_glossary_names(prompt, "Norris strolled back to the garage.")
+        assert "ランド・ノリス" in result
+        assert "ランス・ストロール" not in result
+
+    def test_accents_are_folded_before_matching(self):
+        prompt = "<names>\n- Kimi Räikkönen: キミ・ライコネン\n- Lando Norris: ランド・ノリス\n</names>"
+        result = index._filter_glossary_names(prompt, "Raikkonen and Norris shared a laugh.")
+        assert "キミ・ライコネン" in result
+
+    def test_matching_is_case_insensitive(self):
+        result = index._filter_glossary_names(self.PROMPT, "VERSTAPPEN won again.")
+        assert "マックス・フェルスタッペン" in result
+
+    def test_keeps_every_name_when_none_match(self):
+        result = index._filter_glossary_names(self.PROMPT, "A story with no drivers.")
+        assert "角田裕毅" in result
+        assert "ランド・ノリス" in result
+
+    def test_prompt_without_names_section_is_untouched(self):
+        prompt = "no glossary here"
+        assert index._filter_glossary_names(prompt, "Norris") == prompt
