@@ -289,6 +289,17 @@ class TestFilterGlossaryNames:
     def test_empty_body_leaves_the_glossary_alone(self):
         assert index._filter_glossary_names(self.PROMPT, "") == self.PROMPT
 
+    def test_surname_must_be_a_whole_word(self):
+        prompt = "<names>\n- Lance Stroll: ランス・ストロール\n- Lando Norris: ランド・ノリス\n</names>"
+        result = index._filter_glossary_names(prompt, "Norris strolled back to the garage.")
+        assert "ランド・ノリス" in result
+        assert "ランス・ストロール" not in result
+
+    def test_accents_are_folded_before_matching(self):
+        prompt = "<names>\n- Kimi Räikkönen: キミ・ライコネン\n- Lando Norris: ランド・ノリス\n</names>"
+        result = index._filter_glossary_names(prompt, "Raikkonen and Norris shared a laugh.")
+        assert "キミ・ライコネン" in result
+
     def test_matching_is_case_insensitive(self):
         result = index._filter_glossary_names(self.PROMPT, "VERSTAPPEN won again.")
         assert "マックス・フェルスタッペン" in result

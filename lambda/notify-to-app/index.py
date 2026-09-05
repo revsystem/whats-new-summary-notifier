@@ -6,6 +6,7 @@ import os
 import re
 import time
 import traceback
+import unicodedata
 import urllib.parse
 import urllib.request
 
@@ -124,6 +125,13 @@ def get_blog_content(url):
         return None
 
 
+def _fold_accents(text):
+    """Drop diacritics so Raikkonen matches Räikkönen."""
+
+    decomposed = unicodedata.normalize("NFD", text)
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
 def _filter_glossary_names(prompt_data, blog_body):
     """Narrow the glossary's <names> list to people the article mentions.
 
@@ -140,14 +148,19 @@ def _filter_glossary_names(prompt_data, blog_body):
     if start == -1 or end == -1 or not blog_body:
         return prompt_data
 
-    body_lower = blog_body.lower()
+    body = _fold_accents(blog_body)
     kept = []
     for line in prompt_data[start + len("<names>") : end].strip().split("\n"):
         english_name = line.lstrip("- ").split(":")[0].strip()
         # Match on the surname: articles rarely use a driver's first name
         # alone, and two drivers can share one ("Kimi" Antonelli and Räikkönen).
         surname = english_name.split()[-1] if english_name.split() else ""
-        if surname and surname.lower() in body_lower:
+        if not surname:
+            continue
+        # Whole word only, so the verb "strolled" does not keep Lance Stroll,
+        # and accent-folded, because articles write Raikkonen for Räikkönen.
+        pattern = rf"\b{re.escape(_fold_accents(surname))}\b"
+        if re.search(pattern, body, re.IGNORECASE):
             kept.append(line)
 
     if not kept:
