@@ -53,6 +53,24 @@ Bedrock Marketplace経由のサードパーティモデル(GPT-5.6 Terra等)の�
 2. 判明したサービス名で`--filter '{"Dimensions":{"Key":"SERVICE","Values":["<サービス名>"]}}'`を指定して日次コストを取得する
 3. `USAGE_TYPE`でさらに group-by すると `cache_write_tokens_30m_standard` / `input_tokens_standard` / `output_tokens_standard` / `cache_read_tokens_standard` に分解できる。`UsageQuantity`は百万トークン単位の実数(例: `0.000858` = 858トークン)
 
+`UsageQuantity` の単位はサービスによって違う。Marketplace 系 (`USW2-MP:...-Units`) は百万トークン単位だが、`Amazon Bedrock` として課金されるモデル (`USW2-NovaPro-input-tokens` など) は千トークン単位。モデルの単価で換算してサービス全体の Usage と一致するか確かめること。
+
+### クレジットの扱い
+
+`RECORD_TYPE` を分けずに集計すると Usage と Credit が相殺され、`Amazon Bedrock` サービスが `$0` に見える。使っていないのではなく、全額クレジットで消えている。
+
+```bash
+aws ce get-cost-and-usage --time-period Start=<from>,End=<to> --granularity MONTHLY \
+  --metrics UnblendedCost --group-by Type=DIMENSION,Key=SERVICE \
+  --filter '{"Dimensions":{"Key":"RECORD_TYPE","Values":["Usage"]}}' --profile production
+```
+
+`Values` を `["Credit"]` にして 2 回引き、突き合わせる。2025-09 〜 2026-09 の実績では、クレジットは `Amazon Bedrock` の Usage とほぼ一致して適用される一方、`(Amazon Bedrock Edition)` の Marketplace 課金には適用されていない。2026-08-06 の Terra 移行は、モデル単価の上昇だけでなく推論コストがクレジットの対象外へ移る変更だった。クレジット残高は Cost Explorer からは分からないため Billing コンソールの Credits で確認する。
+
+### アカウント内の他プロジェクトの費用
+
+production アカウントには当プロジェクト以外の LLM 費用（Claude 各モデル、Cohere Embed）が乗っている。プロジェクト単位で見るには `SERVICE` を `OpenAI GPT-5.6 Luna (Amazon Bedrock Edition)` / `OpenAI GPT-5.6 Terra (Amazon Bedrock Edition)` / `Amazon Bedrock` に絞る。絞らずに「LLM 費用」として報告してはならない。
+
 ## Lambda タイムアウト設定
 
 | Lambda | タイムアウト |
