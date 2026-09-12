@@ -48,7 +48,7 @@
                     "AWS Web Services Blog (JP) - Generative AI 2": "https://aws.amazon.com/jp/blogs/news/category/generative-ai-2/feed/"
                 },
                 "schedule": {
-                    "minute": "20",
+                    "minute": "45",
                     "hour": "*",
                     "day": "*",
                     "month": "*",
@@ -64,7 +64,7 @@
                     "Racing News 365": "https://racingnews365.com/feed/news.xml"
                 },
                 "schedule": {
-                    "minute": "50",
+                    "minute": "0,30",
                     "hour": "*",
                     "day": "*",
                     "month": "*",
