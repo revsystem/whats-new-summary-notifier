@@ -441,10 +441,13 @@ FINAL CHECK before you output: When output language is Japanese, scan your <summ
         if not summary_matches or not twitter_matches or not threads_matches or not bluesky_matches:
             raise ValueError(f"Response missing required XML tags: {outputText[:300]}")
 
-        summary = summary_matches[0]
-        twitter = twitter_matches[0]
-        threads = threads_matches[0]
-        bluesky = bluesky_matches[0]
+        # The model sometimes pads a tag with a newline or spaces. Kept as-is,
+        # that padding reaches Slack as a blank line under the title and is
+        # URL-encoded into the share links as a leading %20%20.
+        summary = summary_matches[0].strip()
+        twitter = twitter_matches[0].strip()
+        threads = threads_matches[0].strip()
+        bluesky = bluesky_matches[0].strip()
     except ClientError as error:
         if error.response["Error"]["Code"] == "AccessDeniedException":
             print(
