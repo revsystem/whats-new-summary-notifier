@@ -312,3 +312,26 @@ class TestFilterGlossaryNames:
     def test_prompt_without_names_section_is_untouched(self):
         prompt = "no glossary here"
         assert index._filter_glossary_names(prompt, "Norris") == prompt
+
+
+class TestSummarizeBlogTrimsOutput:
+    RESPONSE = (
+        "<thinking>x</thinking>"
+        "<summary>  \n要約本文。\n  </summary>"
+        "<twitter>\n  Xの文。 </twitter>"
+        "<threads>  Threadsの文。\n</threads>"
+        "<bluesky>\tBlueskyの文。  </bluesky>"
+    )
+
+    def _run(self):
+        agent = MagicMock()
+        agent.return_value.message = {"content": [{"text": self.RESPONSE}]}
+        with patch("index.Agent", return_value=agent), patch("index.build_model"):
+            return index.summarize_blog("body", "Japanese.", "persona", "AwsSolutionsArchitectJapanese")
+
+    def test_each_section_is_trimmed(self):
+        summary, twitter, threads, bluesky = self._run()
+        assert summary == "要約本文。"
+        assert twitter == "Xの文。"
+        assert threads == "Threadsの文。"
+        assert bluesky == "Blueskyの文。"
