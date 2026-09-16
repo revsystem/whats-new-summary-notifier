@@ -373,3 +373,15 @@ class TestMultiParagraphSummary:
             "bluesky": "B",
         }
         assert self.SUMMARY in index.create_slack_message(item)["text"]
+
+    def test_f1_prompt_asks_for_a_paragraph_per_topic(self):
+        """The paragraph rule is the whole change; nothing else pins it down."""
+        agent = MagicMock()
+        agent.return_value.message = {"content": [{"text": self.RESPONSE}]}
+        with patch("index.Agent", return_value=agent) as agent_cls, patch("index.build_model"):
+            index.summarize_blog("body", "Japanese.", "persona", "Formula1ProfessionalJapanese")
+        prompt = agent_cls.call_args.kwargs["system_prompt"]
+        assert "split the summary into 2-3 paragraphs" in prompt
+        assert "separated by a blank line" in prompt
+        # The withdrawn bullet format must stay withdrawn (34dcbb7).
+        assert "do not use bullet points, numbered lists, or sub-headings" in prompt
