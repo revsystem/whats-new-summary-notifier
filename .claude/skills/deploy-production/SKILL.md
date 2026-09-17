@@ -45,11 +45,24 @@ export PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin"
 ## CDK デプロイ
 
 ```bash
-PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" cdk deploy --require-approval never --profile production
+eval "$(aws configure export-credentials --profile production --format env)"
+PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" \
+  CDK_DEFAULT_ACCOUNT=531713114752 CDK_DEFAULT_REGION=us-east-1 \
+  npx cdk deploy --require-approval never
 ```
 
 - `--require-approval never`: IAM や セキュリティグループの変更を自動承認する
-- 初回またはブートストラップ未実施の場合: `cdk bootstrap --profile production` を先に実行する
+- 初回またはブートストラップ未実施の場合: `npx cdk bootstrap` を先に実行する
+
+コマンドの形が込み入っているのは、次の 3 点がいずれも必要なため。省略すると失敗する。
+
+`npx cdk` でリポジトリ同梱の CLI を使う。グローバルの `cdk`（mise 管理の npm-aws-cdk）はバージョンが噛み合わず、`Cloud assembly schema version mismatch: Maximum schema version supported is 43.x.x, but found 52.0.0` で止まる。`aws-cdk-lib` が出力する schema を読めるのは `package.json` の `aws-cdk` 依存（2.1112.0）のほう。
+
+`aws configure export-credentials` で認証情報を環境変数へ展開する。同梱 CLI は `--profile production` を渡しても SSO の認証情報を解決できず、`Need to perform AWS calls for account 531713114752, but no credentials have been configured` になる。`aws sts get-caller-identity --profile production` が通っていてもこの症状は出る。
+
+`CDK_DEFAULT_ACCOUNT` と `CDK_DEFAULT_REGION` を明示する。`bin/whats-new-summary-notifier.ts` がスタックの `env` をこの環境変数から読んでおり、未設定だと `Unable to resolve AWS account to use.` で synth 後に止まる。
+
+本番の `cdk deploy` は auto mode の `soft_deny` 対象として `~/.claude/settings.json` に登録されている。セッションから直接叩くと `[Production Deploy]` で拒否されるため、このスキル経由で実行する。
 
 ## デプロイ後の確認
 
@@ -97,7 +110,10 @@ aws lambda invoke \
 
 ```bash
 git checkout <前のコミット SHA>
-PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" cdk deploy --require-approval never --profile production
+eval "$(aws configure export-credentials --profile production --format env)"
+PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" \
+  CDK_DEFAULT_ACCOUNT=531713114752 CDK_DEFAULT_REGION=us-east-1 \
+  npx cdk deploy --require-approval never
 git checkout -
 ```
 
@@ -105,6 +121,6 @@ git checkout -
 
 Lambda タイムアウト (180 秒) が続く場合: CloudWatch Logs で Bedrock の呼び出しエラーを確認する。`modelRegion` (us-west-2) でモデルアクセスが有効になっているか確認する。
 
-`ExpiredTokenException`: `aws sso login --profile production` で再ログインする。
+`ExpiredTokenException`: `aws sso login --profile production` で再ログインする。`eval "$(aws configure export-credentials ...)"` で展開した認証情報は再ログイン後に展開し直す。
 
 Docker credential エラー (`docker-credential-desktop.exe not found`): PATH に `/mnt/c/Program Files/Docker/Docker/resources/bin` を追加する。
