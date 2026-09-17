@@ -52,7 +52,14 @@ PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" \
 ```
 
 - `--require-approval never`: IAM や セキュリティグループの変更を自動承認する
-- 初回またはブートストラップ未実施の場合: `npx cdk bootstrap` を先に実行する
+- 初回またはブートストラップ未実施の場合は、同じ環境変数を与えて先に実行する:
+
+```bash
+eval "$(aws configure export-credentials --profile production --format env)"
+PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" \
+  CDK_DEFAULT_ACCOUNT=531713114752 CDK_DEFAULT_REGION=us-east-1 \
+  npx cdk bootstrap aws://531713114752/us-east-1
+```
 
 コマンドの形が込み入っているのは、次の 3 点がいずれも必要なため。省略すると失敗する。
 
@@ -119,7 +126,7 @@ git checkout -
 
 ## トラブルシューティング
 
-Lambda タイムアウト (180 秒) が続く場合: CloudWatch Logs で Bedrock の呼び出しエラーを確認する。`modelRegion` (us-west-2) でモデルアクセスが有効になっているか確認する。
+Lambda タイムアウト (`modelApiMode=responses` の現行設定では 600 秒) が続く場合: CloudWatch Logs で Bedrock の呼び出しエラーを確認する。`modelRegion` (us-west-2) でモデルアクセスが有効になっているか確認する。
 
 `ExpiredTokenException`: `aws sso login --profile production` で再ログインする。`eval "$(aws configure export-credentials ...)"` で展開した認証情報は再ログイン後に展開し直す。
 
