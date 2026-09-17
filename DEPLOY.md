@@ -40,7 +40,7 @@ This asset is set up to output summaries in Japanese (日本語) by default. If 
 
 Run the CDK CLI through `npx cdk` so it resolves to the copy bundled with this repository. A globally installed `cdk` stops with `Cloud assembly schema version mismatch` when its version does not match; `package.json` keeps `aws-cdk` paired with `aws-cdk-lib`.
 
-Deploying revsystem's production environment (the `production` profile) takes extra steps around SSO credentials — see `.claude/skills/deploy-production/SKILL.md`.
+A profile that authenticates through AWS SSO needs extra steps around credentials. The procedure for the production environment is in `.claude/skills/deploy-production/SKILL.md`.
 
 **Deploy region**
 

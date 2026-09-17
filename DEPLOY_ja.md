@@ -50,7 +50,7 @@ aws ssm put-parameter \
 
 CDK CLI は `npx cdk` でリポジトリ同梱のものを使ってください。グローバルにインストールされた `cdk` はバージョンが古いと `Cloud assembly schema version mismatch` で止まります。同梱の `aws-cdk` は `package.json` で `aws-cdk-lib` と組みで管理されています。
 
-revsystem の本番環境 (`production` プロファイル) へデプロイする場合は、SSO の認証情報の扱いなど追加の手順があります。`.claude/skills/deploy-production/SKILL.md` を参照してください。
+AWS SSO で認証するプロファイルを使う場合は、認証情報の扱いに追加の手順が必要です。本番環境向けの手順は `.claude/skills/deploy-production/SKILL.md` にまとめてあります。
 
 **デプロイ先リージョン**
 

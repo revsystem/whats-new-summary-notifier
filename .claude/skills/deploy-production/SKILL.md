@@ -18,7 +18,7 @@ user-invocable: true
 aws sts get-caller-identity --profile production
 ```
 
-期待値: `"Account": "531713114752"` が含まれること。含まれない場合は再ログインする。
+期待値: `production` プロファイルのアカウント ID が返ること。失効している場合は再ログインする。
 
 ```bash
 aws sso login --profile production
@@ -46,9 +46,9 @@ export PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin"
 
 ```bash
 eval "$(aws configure export-credentials --profile production --format env)"
-PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" \
-  CDK_DEFAULT_ACCOUNT=531713114752 CDK_DEFAULT_REGION=us-east-1 \
-  npx cdk deploy --require-approval never
+export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+export CDK_DEFAULT_REGION=us-east-1
+PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" npx cdk deploy --require-approval never
 ```
 
 - `--require-approval never`: IAM や セキュリティグループの変更を自動承認する
@@ -56,16 +56,17 @@ PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" \
 
 ```bash
 eval "$(aws configure export-credentials --profile production --format env)"
+export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+export CDK_DEFAULT_REGION=us-east-1
 PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" \
-  CDK_DEFAULT_ACCOUNT=531713114752 CDK_DEFAULT_REGION=us-east-1 \
-  npx cdk bootstrap aws://531713114752/us-east-1
+  npx cdk bootstrap "aws://${CDK_DEFAULT_ACCOUNT}/${CDK_DEFAULT_REGION}"
 ```
 
 コマンドの形が込み入っているのは、次の 3 点がいずれも必要なため。省略すると失敗する。
 
 `npx cdk` でリポジトリ同梱の CLI を使う。グローバルの `cdk`（mise 管理の npm-aws-cdk）はバージョンが噛み合わず、`Cloud assembly schema version mismatch: Maximum schema version supported is 43.x.x, but found 52.0.0` で止まる。`aws-cdk-lib` が出力する schema を読めるのは `package.json` の `aws-cdk` 依存（2.1112.0）のほう。
 
-`aws configure export-credentials` で認証情報を環境変数へ展開する。同梱 CLI は `--profile production` を渡しても SSO の認証情報を解決できず、`Need to perform AWS calls for account 531713114752, but no credentials have been configured` になる。`aws sts get-caller-identity --profile production` が通っていてもこの症状は出る。
+`aws configure export-credentials` で認証情報を環境変数へ展開する。同梱 CLI は `--profile production` を渡しても SSO の認証情報を解決できず、`Need to perform AWS calls for account <アカウント ID>, but no credentials have been configured` になる。`aws sts get-caller-identity --profile production` が通っていてもこの症状は出る。
 
 `CDK_DEFAULT_ACCOUNT` と `CDK_DEFAULT_REGION` を明示する。`bin/whats-new-summary-notifier.ts` がスタックの `env` をこの環境変数から読んでおり、未設定だと `Unable to resolve AWS account to use.` で synth 後に止まる。
 
@@ -118,9 +119,9 @@ aws lambda invoke \
 ```bash
 git checkout <前のコミット SHA>
 eval "$(aws configure export-credentials --profile production --format env)"
-PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" \
-  CDK_DEFAULT_ACCOUNT=531713114752 CDK_DEFAULT_REGION=us-east-1 \
-  npx cdk deploy --require-approval never
+export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+export CDK_DEFAULT_REGION=us-east-1
+PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" npx cdk deploy --require-approval never
 git checkout -
 ```
 
