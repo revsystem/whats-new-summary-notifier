@@ -18,7 +18,14 @@ user-invocable: true
 aws sts get-caller-identity --profile production
 ```
 
-期待値: `production` プロファイルのアカウント ID が返ること。失効している場合は再ログインする。
+期待値: SSO プロファイルに設定されたアカウントと一致すること。次のコマンドが同じ値を 2 行返せば一致している。
+
+```bash
+aws configure get sso_account_id --profile production
+aws sts get-caller-identity --profile production --query Account --output text
+```
+
+失効している場合は再ログインする。
 
 ```bash
 aws sso login --profile production
@@ -45,32 +52,26 @@ export PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin"
 ## CDK デプロイ
 
 ```bash
-eval "$(aws configure export-credentials --profile production --format env)"
-export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-export CDK_DEFAULT_REGION=us-east-1
-PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" npx cdk deploy --require-approval never
+PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" npx cdk deploy --require-approval never --profile production
 ```
 
 - `--require-approval never`: IAM や セキュリティグループの変更を自動承認する
-- 初回またはブートストラップ未実施の場合は、同じ環境変数を与えて先に実行する:
+- 初回またはブートストラップ未実施の場合は先に実行する: `npx cdk bootstrap --profile production`
+
+`cdk` ではなく `npx cdk` と書くのは、`package.json` の `aws-cdk` 依存を使うため。グローバルに入った `cdk` が `aws-cdk-lib` の出力する cloud assembly を読めないバージョンだと、`Cloud assembly schema version mismatch: Maximum schema version supported is 43.x.x, but found 52.0.0` で何もせずに止まる。現に npm の `aws-cdk@3.0.0`（2025 年 4 月に誤って公開され deprecated 扱い）が入っていた環境でこれが起きた。semver 上は 3.0.0 がすべての 2.x を上回るため、バージョン解決の仕方によっては選ばれてしまう。
+
+本番の `cdk deploy` は auto mode の `soft_deny` 対象として `~/.claude/settings.json` に登録されている。セッションから直接叩くと `[Production Deploy]` で拒否されるため、このスキル経由で実行する。
+
+### 認証情報が解決できないとき
+
+`Need to perform AWS calls for account <アカウント ID>, but no credentials have been configured` や `Unable to resolve AWS account to use.` で止まる場合は、認証情報を環境変数へ展開してから実行する。`--profile` で解決できるのが通常なので、これは回避策として使う。
 
 ```bash
 eval "$(aws configure export-credentials --profile production --format env)"
 export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 export CDK_DEFAULT_REGION=us-east-1
-PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" \
-  npx cdk bootstrap "aws://${CDK_DEFAULT_ACCOUNT}/${CDK_DEFAULT_REGION}"
+PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" npx cdk deploy --require-approval never
 ```
-
-コマンドの形が込み入っているのは、次の 3 点がいずれも必要なため。省略すると失敗する。
-
-`npx cdk` で `package.json` の `aws-cdk` 依存を使う。グローバルの `cdk` は `mise.toml` で `2.1142.0` に固定してあり現状はこちらでも通るが、手元の mise が古い版を掴んでいると `Cloud assembly schema version mismatch: Maximum schema version supported is 43.x.x, but found 52.0.0` で止まる。`npx` ならグローバル側の状態に依存しない。固定に至った経緯は `mise.toml` のコメントに書いてある。
-
-`aws configure export-credentials` で認証情報を環境変数へ展開する。同梱 CLI は `--profile production` を渡しても SSO の認証情報を解決できず、`Need to perform AWS calls for account <アカウント ID>, but no credentials have been configured` になる。`aws sts get-caller-identity --profile production` が通っていてもこの症状は出る。
-
-`CDK_DEFAULT_ACCOUNT` と `CDK_DEFAULT_REGION` を明示する。`bin/whats-new-summary-notifier.ts` がスタックの `env` をこの環境変数から読んでおり、未設定だと `Unable to resolve AWS account to use.` で synth 後に止まる。
-
-本番の `cdk deploy` は auto mode の `soft_deny` 対象として `~/.claude/settings.json` に登録されている。セッションから直接叩くと `[Production Deploy]` で拒否されるため、このスキル経由で実行する。
 
 ## デプロイ後の確認
 
@@ -118,10 +119,7 @@ aws lambda invoke \
 
 ```bash
 git checkout <前のコミット SHA>
-eval "$(aws configure export-credentials --profile production --format env)"
-export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-export CDK_DEFAULT_REGION=us-east-1
-PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" npx cdk deploy --require-approval never
+PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" npx cdk deploy --require-approval never --profile production
 git checkout -
 ```
 
@@ -129,6 +127,6 @@ git checkout -
 
 Lambda タイムアウト (`modelApiMode=responses` の現行設定では 600 秒) が続く場合: CloudWatch Logs で Bedrock の呼び出しエラーを確認する。`modelRegion` (us-west-2) でモデルアクセスが有効になっているか確認する。
 
-`ExpiredTokenException`: `aws sso login --profile production` で再ログインする。`eval "$(aws configure export-credentials ...)"` で展開した認証情報は再ログイン後に展開し直す。
+`ExpiredTokenException`: `aws sso login --profile production` で再ログインする。回避策として認証情報を環境変数へ展開していた場合は、再ログイン後に展開し直す。
 
 Docker credential エラー (`docker-credential-desktop.exe not found`): PATH に `/mnt/c/Program Files/Docker/Docker/resources/bin` を追加する。
