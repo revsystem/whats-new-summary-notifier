@@ -17,7 +17,7 @@ npx cdk deploy
 
 Prerequisites: Docker (required for Lambda build via `aws-lambda-python-alpha`). See [README.md](README.md) for full prerequisites.
 
-Use `npx cdk` so the CLI comes from this repository's `aws-cdk` dev dependency. A globally installed `cdk` that predates the cloud assembly `aws-cdk-lib` emits stops with `Cloud assembly schema version mismatch`. Deploying to production has extra steps — see `.claude/skills/deploy-production/SKILL.md` or invoke `/deploy-production`.
+Use `npx cdk` so the CLI comes from this repository's `aws-cdk` dev dependency, which tracks the v2 line this app is built on. `mise.toml` installs `npm:aws-cdk` at `latest`, so a globally resolved `cdk` is now the v3 CLI, which refuses the cloud assembly `aws-cdk-lib` v2 emits (`Cloud assembly schema version mismatch`). Deploying to production has extra steps — see `.claude/skills/deploy-production/SKILL.md` or invoke `/deploy-production`.
 
 ## Architecture
 
