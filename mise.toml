@@ -2,6 +2,10 @@
 aws = "latest"
 # [Node.js]
 node = "latest"
-"npm:aws-cdk" = "latest"
+# npm の aws-cdk@3.0.0 は 2018 年の公開版だが semver では現行の 2.x より大きく、
+# "latest" を最大バージョンとして解決すると 2018 年版が入る。範囲指定の "2" でも
+# 古い 2.x が残っていればそれが選ばれ、どちらも aws-cdk-lib の出力する
+# cloud assembly を読めない。package.json の aws-cdk と合う版を明示する。
+"npm:aws-cdk" = "2.1142.0"
 # [Python]
 python = "3.12.0"

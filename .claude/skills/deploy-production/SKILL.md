@@ -64,7 +64,7 @@ PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin" \
 
 コマンドの形が込み入っているのは、次の 3 点がいずれも必要なため。省略すると失敗する。
 
-`npx cdk` で `package.json` の `aws-cdk` 依存を使う。グローバルの `cdk` は `mise.toml` の `"npm:aws-cdk" = "latest"` で入るが、これが解決するのは npm の `latest` タグ（現在 `2.1142.0`）ではなく最大バージョンの `3.0.0` で、2018 年公開の古い CLI である。この CLI は `aws-cdk-lib` が出力する cloud assembly を読めず、`Cloud assembly schema version mismatch: Maximum schema version supported is 43.x.x, but found 52.0.0` で止まる。
+`npx cdk` で `package.json` の `aws-cdk` 依存を使う。グローバルの `cdk` は `mise.toml` で `2.1142.0` に固定してあり現状はこちらでも通るが、手元の mise が古い版を掴んでいると `Cloud assembly schema version mismatch: Maximum schema version supported is 43.x.x, but found 52.0.0` で止まる。`npx` ならグローバル側の状態に依存しない。固定に至った経緯は `mise.toml` のコメントに書いてある。
 
 `aws configure export-credentials` で認証情報を環境変数へ展開する。同梱 CLI は `--profile production` を渡しても SSO の認証情報を解決できず、`Need to perform AWS calls for account <アカウント ID>, but no credentials have been configured` になる。`aws sts get-caller-identity --profile production` が通っていてもこの症状は出る。
 
