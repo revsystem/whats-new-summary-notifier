@@ -50,7 +50,7 @@ aws ssm put-parameter \
 
 CDK CLI は `npx cdk` で `package.json` の `aws-cdk` 依存を使ってください。グローバルに入れた `cdk` が `aws-cdk-lib` の出力する cloud assembly を読めないバージョンだと、すべてのコマンドが `Cloud assembly schema version mismatch` で何もせずに止まります。npm の `aws-cdk@3.0.0` はその一例で、2025 年に誤って公開され deprecated 扱いですが、semver ではすべての 2.x を上回るため意図せず入ることがあります。
 
-AWS SSO で認証するプロファイルを使う場合は、認証情報の扱いに追加の手順が必要です。本番環境向けの手順は `.claude/skills/deploy-production/SKILL.md` にまとめてあります。
+本番環境向けの手順は `.claude/skills/deploy-production/SKILL.md` にまとめてあります。WSL2 での Docker 認証ヘルパーの設定やデプロイ後の確認も含みます。
 
 **デプロイ先リージョン**
 

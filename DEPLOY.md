@@ -40,7 +40,7 @@ This asset is set up to output summaries in Japanese (日本語) by default. If 
 
 Run the CDK CLI through `npx cdk` so it resolves to the `aws-cdk` dev dependency in `package.json`. A globally installed `cdk` that cannot read the cloud assembly `aws-cdk-lib` emits makes every command stop with `Cloud assembly schema version mismatch` before doing anything. `aws-cdk@3.0.0` on npm is one way to end up there: it was published by accident in 2025 and is deprecated, yet it outranks every 2.x by semver.
 
-A profile that authenticates through AWS SSO needs extra steps around credentials. The procedure for the production environment is in `.claude/skills/deploy-production/SKILL.md`.
+The procedure for the production environment, including the WSL2 Docker credential helper and the post-deploy checks, is in `.claude/skills/deploy-production/SKILL.md`.
 
 **Deploy region**
 

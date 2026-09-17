@@ -41,7 +41,7 @@ docker info
 
 ## WSL2 固有の設定 (必須)
 
-WSL2 環境では Docker Desktop の認証ヘルパー (`docker-credential-desktop.exe`) を PATH に追加しなければ `cdk deploy` が失敗する。
+WSL2 環境では Docker Desktop の認証ヘルパー (`docker-credential-desktop.exe`) を PATH に追加しなければ `npx cdk deploy` が失敗する。
 
 ```bash
 export PATH="$PATH:/mnt/c/Program Files/Docker/Docker/resources/bin"
