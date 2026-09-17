@@ -38,6 +38,10 @@ This asset is set up to output summaries in Japanese (日本語) by default. If 
 
 ### Execute the deployment
 
+Run the CDK CLI through `npx cdk` so it resolves to the copy bundled with this repository. A globally installed `cdk` stops with `Cloud assembly schema version mismatch` when its version does not match; `package.json` keeps `aws-cdk` paired with `aws-cdk-lib`.
+
+Deploying revsystem's production environment (the `production` profile) takes extra steps around SSO credentials — see `.claude/skills/deploy-production/SKILL.md`.
+
 **Deploy region**
 
 The deploy target region is read from `CDK_DEFAULT_REGION`. Copy `.env.example` to `.env` and set the region (e.g. `CDK_DEFAULT_REGION=us-east-1`). If unset, the stack defaults to `us-east-1`.
@@ -49,31 +53,31 @@ If your AWS profile's default region differs from the deploy target, the CDK CLI
 If you haven't used CDK in this region before, run the following command:
 
 ```bash
-cdk bootstrap
+npx cdk bootstrap
 ```
 
 If you are using a specific AWS profile, add the `--profile` option:
 
 ```bash
-AWS_DEFAULT_REGION=us-east-1 cdk bootstrap --profile your-profile-name
+AWS_DEFAULT_REGION=us-east-1 npx cdk bootstrap --profile your-profile-name
 ```
 
 **Verify no errors**
 
 ```bash
-cdk synth
+npx cdk synth
 ```
 
 **Execute Deployment**
 
 ```bash
-cdk deploy
+npx cdk deploy
 ```
 
 If your AWS profile region differs from the deploy target, specify both variables:
 
 ```bash
-AWS_DEFAULT_REGION=us-east-1 cdk deploy --profile your-profile-name
+AWS_DEFAULT_REGION=us-east-1 npx cdk deploy --profile your-profile-name
 ```
 
 ## Delete Stack
@@ -81,13 +85,13 @@ AWS_DEFAULT_REGION=us-east-1 cdk deploy --profile your-profile-name
 If no longer needed, run the following command to delete the stack:
 
 ```bash
-cdk destroy
+npx cdk destroy
 ```
 
 If you are using a specific AWS profile, add the `--profile` option:
 
 ```bash
-cdk destroy --profile your-profile-name
+npx cdk destroy --profile your-profile-name
 ```
 
 By default, some resources such as the Amazon DynamoDB table are set to not be deleted.
@@ -103,7 +107,7 @@ If you encounter dependency conflicts during deployment, the system automaticall
 
 - Ensure Docker is running before executing CDK commands
 - The build process uses AWS SAM build images which are automatically downloaded
-- If builds fail, try running `cdk synth` first to verify the configuration
+- If builds fail, try running `npx cdk synth` first to verify the configuration
 
 ### Common Issues
 
@@ -135,7 +139,7 @@ Each `modelId` below is reachable through only one of the two APIs, so whenever 
 The GPT-5.6 models are also served by the Converse API on `bedrock-runtime`, but only under a cross-Region inference profile ID (such as `us.openai.gpt-5.6-luna`) and only with `bedrock:InvokeModel` on `project/default`, which this stack does not grant. The bare model IDs above therefore go through `responses`.
 
 1. Edit the affected values in the `context` section of [cdk.json](cdk.json).
-2. Deploy with `cdk deploy`. The CDK app rejects an unknown `modelApiMode` at synth time, and the Lambda function rejects a mismatched pair at startup, so a half-finished edit fails fast rather than reaching production.
+2. Deploy with `npx cdk deploy`. The CDK app rejects an unknown `modelApiMode` at synth time, and the Lambda function rejects a mismatched pair at startup, so a half-finished edit fails fast rather than reaching production.
 3. Check CloudWatch Logs for the first few invocations of `NotifyNewEntry`.
 
 Notes when moving to a `responses` model:
@@ -144,7 +148,7 @@ Notes when moving to a `responses` model:
 * The Lambda timeout is raised from 180 to 600 seconds in `responses` mode, because reasoning models spend considerably longer per article.
 * Reasoning models such as GPT-5.6 Terra reject `temperature` and `top_p`. Sending either returns HTTP 400 `unsupported_parameter`, so only `max_output_tokens` and the reasoning effort are passed on that path.
 
-To roll back, restore the previous `modelId` and `modelApiMode` pair and run `cdk deploy` again. No code change is needed, because both call paths remain in the function.
+To roll back, restore the previous `modelId` and `modelApiMode` pair and run `npx cdk deploy` again. No code change is needed, because both call paths remain in the function.
 
 ## summarizers
 Configure the prompt for summarizing the input to the generative AI.
