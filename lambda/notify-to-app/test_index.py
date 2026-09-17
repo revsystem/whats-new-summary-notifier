@@ -335,3 +335,53 @@ class TestSummarizeBlogTrimsOutput:
         assert twitter == "Xの文。"
         assert threads == "Threadsの文。"
         assert bluesky == "Blueskyの文。"
+
+
+class TestMultiParagraphSummary:
+    """A multi-topic summary carries a blank line; it has to survive to Slack.
+
+    The trim added for #39 strips the padding around a tag, so the paragraph
+    break inside the summary must not be collapsed along with it.
+    """
+
+    SUMMARY = "第1トピック。\n\n一方、第2トピック。"
+    RESPONSE = (
+        "<thinking>x</thinking>"
+        f"<summary>\n  {SUMMARY}\n</summary>"
+        "<twitter>Xの文。</twitter>"
+        "<threads>Threadsの文。</threads>"
+        "<bluesky>Blueskyの文。</bluesky>"
+    )
+
+    def test_parse_keeps_the_paragraph_break(self):
+        agent = MagicMock()
+        agent.return_value.message = {"content": [{"text": self.RESPONSE}]}
+        with patch("index.Agent", return_value=agent), patch("index.build_model"):
+            summary, _, _, _ = index.summarize_blog(
+                "body", "Japanese.", "persona", "Formula1ProfessionalJapanese"
+            )
+        assert summary == self.SUMMARY
+
+    def test_slack_message_keeps_the_paragraph_break(self):
+        item = {
+            "rss_time": "2026-09-17 00:00",
+            "rss_link": "https://example.com/a",
+            "rss_title": "Title",
+            "summary": self.SUMMARY,
+            "twitter": "X",
+            "threads": "T",
+            "bluesky": "B",
+        }
+        assert self.SUMMARY in index.create_slack_message(item)["text"]
+
+    def test_f1_prompt_asks_for_a_paragraph_per_topic(self):
+        """The paragraph rule is the whole change; nothing else pins it down."""
+        agent = MagicMock()
+        agent.return_value.message = {"content": [{"text": self.RESPONSE}]}
+        with patch("index.Agent", return_value=agent) as agent_cls, patch("index.build_model"):
+            index.summarize_blog("body", "Japanese.", "persona", "Formula1ProfessionalJapanese")
+        prompt = agent_cls.call_args.kwargs["system_prompt"]
+        assert "split the summary into 2-3 paragraphs" in prompt
+        assert "separated by a blank line" in prompt
+        # The withdrawn bullet format must stay withdrawn (34dcbb7).
+        assert "do not use bullet points, numbered lists, or sub-headings" in prompt
