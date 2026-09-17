@@ -38,7 +38,7 @@ This asset is set up to output summaries in Japanese (日本語) by default. If 
 
 ### Execute the deployment
 
-Run the CDK CLI through `npx cdk` so it resolves to the copy bundled with this repository. A globally installed `cdk` stops with `Cloud assembly schema version mismatch` when its version does not match; `package.json` keeps `aws-cdk` paired with `aws-cdk-lib`.
+Run the CDK CLI through `npx cdk` so it resolves to the `aws-cdk` dev dependency in `package.json`. A globally installed `cdk` old enough that it cannot read the cloud assembly `aws-cdk-lib` emits stops with `Cloud assembly schema version mismatch` before deploying anything.
 
 A profile that authenticates through AWS SSO needs extra steps around credentials. The procedure for the production environment is in `.claude/skills/deploy-production/SKILL.md`.
 

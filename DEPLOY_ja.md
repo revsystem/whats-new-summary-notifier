@@ -48,7 +48,7 @@ aws ssm put-parameter \
 
 ### デプロイの実行
 
-CDK CLI は `npx cdk` でリポジトリ同梱のものを使ってください。グローバルにインストールされた `cdk` はバージョンが古いと `Cloud assembly schema version mismatch` で止まります。同梱の `aws-cdk` は `package.json` で `aws-cdk-lib` と組みで管理されています。
+CDK CLI は `npx cdk` で `package.json` の `aws-cdk` 依存を使ってください。グローバルにインストールされた `cdk` が古く、`aws-cdk-lib` の出力する cloud assembly の schema を読めない場合、`Cloud assembly schema version mismatch` で何もせずに止まります。
 
 AWS SSO で認証するプロファイルを使う場合は、認証情報の扱いに追加の手順が必要です。本番環境向けの手順は `.claude/skills/deploy-production/SKILL.md` にまとめてあります。
 
