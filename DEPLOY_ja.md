@@ -48,6 +48,10 @@ aws ssm put-parameter \
 
 ### デプロイの実行
 
+CDK CLI は `npx cdk` で `package.json` の `aws-cdk` 依存を使ってください。グローバルに入れた `cdk` が `aws-cdk-lib` の出力する cloud assembly を読めないバージョンだと、すべてのコマンドが `Cloud assembly schema version mismatch` で何もせずに止まります。npm の `aws-cdk@3.0.0` はその一例で、2025 年に誤って公開され deprecated 扱いですが、semver ではすべての 2.x を上回るため意図せず入ることがあります。
+
+本番環境向けの手順は `.claude/skills/deploy-production/SKILL.md` にまとめてあります。WSL2 での Docker 認証ヘルパーの設定やデプロイ後の確認も含みます。
+
 **デプロイ先リージョン**
 
 デプロイ先リージョンは `CDK_DEFAULT_REGION` で指定します。`.env.example` を `.env` にコピーし、リージョン（例: `CDK_DEFAULT_REGION=us-east-1`）を設定してください。未設定の場合は `us-east-1` が使われます。
@@ -59,37 +63,37 @@ AWS プロファイルのデフォルトリージョンがデプロイ先と異�
 このリージョンで CDK を使用したことがない場合は、次のコマンドを実行します。
 
 ```bash
-cdk bootstrap
+npx cdk bootstrap
 ```
 
 特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
 
 ```bash
-cdk bootstrap --profile your-profile-name
+npx cdk bootstrap --profile your-profile-name
 ```
 
 **エラーがないことを確認**
 
 ```bash
-cdk synth
+npx cdk synth
 ```
 
 特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
 
 ```bash
-cdk synth --profile your-profile-name
+npx cdk synth --profile your-profile-name
 ```
 
 **デプロイの実行**
 
 ```bash
-cdk deploy
+npx cdk deploy
 ```
 
 特定のAWSプロファイルを使用している場合や、プロファイルのリージョンがデプロイ先と異なる場合は、以下のように指定してください：
 
 ```bash
-AWS_DEFAULT_REGION=us-east-1 cdk deploy --profile your-profile-name
+AWS_DEFAULT_REGION=us-east-1 npx cdk deploy --profile your-profile-name
 ```
 
 ## スタックの削除
@@ -97,13 +101,13 @@ AWS_DEFAULT_REGION=us-east-1 cdk deploy --profile your-profile-name
 不要になった場合は以下のコマンドを実行しスタックを削除します。
 
 ```bash
-cdk destroy
+npx cdk destroy
 ```
 
 特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
 
 ```bash
-cdk destroy --profile your-profile-name
+npx cdk destroy --profile your-profile-name
 ```
 
 デフォルトでは Amazon DynamoDB テーブルなど一部のリソースが削除されず残る設定となっています。
@@ -119,7 +123,7 @@ cdk destroy --profile your-profile-name
 
 - CDKコマンドを実行する前にDockerが実行されていることを確認してください
 - ビルドプロセスは自動的にダウンロードされるAWS SAMビルドイメージを使用します
-- ビルドが失敗した場合は、まず`cdk synth`を実行して設定を確認してください
+- ビルドが失敗した場合は、まず`npx cdk synth`を実行して設定を確認してください
 
 ### よくある問題
 
@@ -151,7 +155,7 @@ cdk destroy --profile your-profile-name
 GPT-5.6 系のモデルは `bedrock-runtime` の Converse API でも提供されていますが、その場合はクロスリージョン推論プロファイル ID（`us.openai.gpt-5.6-luna` など）の指定が必須で、さらに `project/default` に対する `bedrock:InvokeModel` 権限が必要になります。本スタックはこの権限を付与しないため、上表のとおり素の model ID を `responses` で呼び出します。
 
 1. [cdk.json](cdk.json) の `context` 内で該当する値を変更します。
-2. `cdk deploy` でデプロイします。不正な `modelApiMode` は synth 時点で、`modelId` との不一致は Lambda 起動時に検出されるため、片方だけ変更した状態が本番に到達することはありません。
+2. `npx cdk deploy` でデプロイします。不正な `modelApiMode` は synth 時点で、`modelId` との不一致は Lambda 起動時に検出されるため、片方だけ変更した状態が本番に到達することはありません。
 3. `NotifyNewEntry` の CloudWatch Logs で最初の数件を確認します。
 
 `responses` のモデルへ切り替える場合の注意点は次のとおりです。
@@ -160,7 +164,7 @@ GPT-5.6 系のモデルは `bedrock-runtime` の Converse API でも提供され
 * 推論モデルは記事あたりの所要時間が長いため、`responses` のときは Lambda のタイムアウトを 180 秒から 600 秒に引き上げます。
 * GPT-5.6 Terra のような推論モデルは `temperature` と `top_p` を受け付けません。指定すると HTTP 400 `unsupported_parameter` になるため、この経路では `max_output_tokens` と推論の effort のみを渡します。
 
-元に戻す場合は、以前の `modelId` と `modelApiMode` の組み合わせに戻して `cdk deploy` を実行します。両方の呼び出し経路が関数内に残っているため、コードの変更は不要です。
+元に戻す場合は、以前の `modelId` と `modelApiMode` の組み合わせに戻して `npx cdk deploy` を実行します。両方の呼び出し経路が関数内に残っているため、コードの変更は不要です。
 
 ## summarizers
 生成 AI に入力する要約用プロンプトの設定を行います。

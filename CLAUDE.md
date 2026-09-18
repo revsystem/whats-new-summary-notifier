@@ -11,11 +11,13 @@ This is an AWS CDK application that implements a Whats New Summary Notifier - a 
 ```bash
 npm install
 npm run build
-cdk bootstrap   # run once per account/region
-cdk deploy
+npx cdk bootstrap   # run once per account/region
+npx cdk deploy
 ```
 
 Prerequisites: Docker (required for Lambda build via `aws-lambda-python-alpha`). See [README.md](README.md) for full prerequisites.
+
+Use `npx cdk` so the CLI comes from this repository's `aws-cdk` dev dependency. A globally installed `cdk` that cannot read the cloud assembly `aws-cdk-lib` emits stops with `Cloud assembly schema version mismatch` before doing anything — `aws-cdk@3.0.0` on npm, published by accident in 2025 and since deprecated, outranks every 2.x by semver and is easy to install unintentionally. Deploying to production has extra steps — see `.claude/skills/deploy-production/SKILL.md` or invoke `/deploy-production`.
 
 ## Architecture
 
@@ -35,10 +37,10 @@ The application consists of:
 ## Build and Development Commands
 
 ### CDK Operations
-- `cdk bootstrap` - Initialize CDK in the AWS account/region (run once)
-- `cdk synth` - Synthesize CloudFormation templates and verify configuration
-- `cdk deploy` - Deploy the stack to AWS
-- `cdk destroy` - Delete the stack from AWS
+- `npx cdk bootstrap` - Initialize CDK in the AWS account/region (run once)
+- `npx cdk synth` - Synthesize CloudFormation templates and verify configuration
+- `npx cdk deploy` - Deploy the stack to AWS
+- `npx cdk destroy` - Delete the stack from AWS
 
 ### Code Quality
 - `npm run build` - Compile TypeScript to JavaScript

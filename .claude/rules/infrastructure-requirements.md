@@ -4,10 +4,12 @@
 
 ## AWS プロファイル
 
-- 本番: `production` (Account ID: 531713114752)
-- サンドボックス: `sandbox` (Account ID: 722326486642)
+- 本番: `production`
+- サンドボックス: `sandbox`
 - SSO ログイン: `aws sso login --profile production`
 - AWS CLI / CDK コマンドは常に `--profile production` を付ける
+
+このリポジトリは public のため、アカウント ID は記載しない。ID が必要な場面では `aws sts get-caller-identity --profile <name> --query Account --output text` で解決する。操作前にこのコマンドで対象アカウントを確認する運用は従来どおり。
 
 ## CDK コンテキスト設定 (cdk.json)
 

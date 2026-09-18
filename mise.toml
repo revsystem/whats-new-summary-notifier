@@ -2,6 +2,8 @@
 aws = "latest"
 # [Node.js]
 node = "latest"
-"npm:aws-cdk" = "latest"
+# CDK CLI はここでは管理しない。手順はすべて npx cdk で package.json の
+# aws-cdk 依存を使うため、ここに置くとバージョンが 2 箇所に分かれ、
+# npm run deps:update が mise.toml を更新しないぶんだけ乖離する。
 # [Python]
 python = "3.12.0"
