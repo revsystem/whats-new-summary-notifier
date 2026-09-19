@@ -1,5 +1,6 @@
-# Run dependency audits on push to main and on pull requests.
-# Fails if npm audit or pip-audit report known vulnerabilities.
+# Run dependency and secret audits on push to main and on pull requests.
+# Fails if npm audit or pip-audit report known vulnerabilities, or if
+# gitleaks finds a secret in the commit history.
 name: Dependency audit
 
 on:
@@ -54,3 +55,24 @@ jobs:
           .venv-rss/bin/pip install -r lambda/rss-crawler/requirements.txt -q
           .venv-rss/bin/pip install pip-audit -q
           .venv-rss/bin/pip-audit
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks scans the commit history, not just the checked out tree.
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: "8.28.0"
+        # The gitleaks-action wrapper requires a GITLEAKS_LICENSE for
+        # organization-owned repositories, so the release binary is used directly.
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo install gitleaks /usr/local/bin/gitleaks
+
+      - name: gitleaks
+        run: gitleaks git --redact --no-banner --exit-code 1 .
