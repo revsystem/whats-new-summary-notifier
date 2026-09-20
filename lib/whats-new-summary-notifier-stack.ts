@@ -8,8 +8,11 @@ import { Runtime, StartingPosition } from 'aws-cdk-lib/aws-lambda';
 import { DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
 import type { BundlingOptions } from '@aws-cdk/aws-lambda-python-alpha/lib/types';
-import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { FilterPattern, LogGroup, MetricFilter, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { Alarm, ComparisonOperator, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch';
+import { LambdaAction } from 'aws-cdk-lib/aws-cloudwatch-actions';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { NagSuppressions } from 'cdk-nag';
 import * as path from 'path';
 
 /** Keep local `.venv` out of the bundling rsync step; otherwise pip -t duplicates deps (~590MB unzipped). */
@@ -212,6 +215,117 @@ export class WhatsNewSummaryNotifierStack extends Stack {
           retryAttempts: 2,
         })
       );
+    }
+
+    // Both functions log their failures and carry on, so an article can go
+    // missing without anything else showing it. These alarms are what makes
+    // that visible; see .claude/runbooks/silent-failure-check.md.
+    const alertWebhookUrlParameterName = this.node.tryGetContext('alertWebhookUrlParameterName');
+    if (!alertWebhookUrlParameterName) {
+      throw new Error('Context value "alertWebhookUrlParameterName" is required for the alarm notifier');
+    }
+
+    const alarmToSlackLogGroup = new LogGroup(this, 'AlarmToSlackLogGroup', {
+      logGroupName: '/aws/lambda/AlarmToSlack',
+      retention: RetentionDays.TWO_WEEKS,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    const alarmToSlackRole = new Role(this, 'AlarmToSlackRole', {
+      assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
+    });
+    const alarmToSlackPolicy = new Policy(this, 'AlarmToSlackPolicy', {
+      statements: [
+        new PolicyStatement({
+          effect: Effect.ALLOW,
+          actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
+          resources: [alarmToSlackLogGroup.logGroupArn, `${alarmToSlackLogGroup.logGroupArn}:*`],
+        }),
+      ],
+    });
+    alarmToSlackRole.attachInlinePolicy(alarmToSlackPolicy);
+
+    const alarmToSlack = new PythonFunction(this, 'AlarmToSlack', {
+      runtime: Runtime.PYTHON_3_12,
+      entry: path.join(__dirname, '../lambda/alarm-to-slack'),
+      bundling: pythonLambdaBundling,
+      handler: 'handler',
+      index: 'index.py',
+      timeout: Duration.seconds(30),
+      role: alarmToSlackRole,
+      logGroup: alarmToSlackLogGroup,
+      environment: {
+        WEBHOOK_URL_PARAMETER_NAME: alertWebhookUrlParameterName,
+        LOG_GROUP_NAMES: JSON.stringify([
+          notifyNewEntryLogGroup.logGroupName,
+          newsCrawlerLogGroup.logGroupName,
+        ]),
+      },
+    });
+
+    StringParameter.fromSecureStringParameterAttributes(this, 'alertWebhookUrlParameterStore', {
+      parameterName: alertWebhookUrlParameterName,
+    }).grantRead(alarmToSlackRole);
+
+    NagSuppressions.addResourceSuppressions(
+      alarmToSlackPolicy,
+      [
+        {
+          id: 'AwsSolutions-IAM5',
+          reason:
+            'Log streams are created per invocation, so their names cannot be enumerated ahead of time. The wildcard stays inside this function own log group.',
+        },
+      ],
+      true
+    );
+    NagSuppressions.addResourceSuppressions(alarmToSlack, [
+      {
+        id: 'AwsSolutions-L1',
+        reason:
+          'Python 3.12 matches the other two functions in this stack and the runtime this repository documents. Moving one function ahead of the rest would fragment the deployment.',
+      },
+    ]);
+
+    // Two alarms share this function, and without a unique id the second
+    // one collides on the Lambda permission construct.
+    const alarmAction = new LambdaAction(alarmToSlack, { useUniquePermissionId: true });
+
+    // The marker notify-to-app prints before swallowing an exception. Matching
+    // on "Traceback" instead would also count stack traces our dependencies log.
+    const swallowedExceptions = new MetricFilter(this, 'NotifyNewEntrySwallowedExceptionFilter', {
+      logGroup: notifyNewEntryLogGroup,
+      filterPattern: FilterPattern.literal('"NOTIFY_TO_APP_UNHANDLED_EXCEPTION"'),
+      metricNamespace: 'WhatsNewSummaryNotifier',
+      metricName: 'NotifyNewEntrySwallowedExceptions',
+      metricValue: '1',
+      defaultValue: 0,
+    });
+
+    // rss-crawler logs and moves on when a write fails, and the entry then
+    // never reaches the stream at all.
+    const crawlerWriteFailures = new MetricFilter(this, 'NewsCrawlerWriteFailureFilter', {
+      logGroup: newsCrawlerLogGroup,
+      filterPattern: FilterPattern.literal('"DynamoDB error writing"'),
+      metricNamespace: 'WhatsNewSummaryNotifier',
+      metricName: 'NewsCrawlerWriteFailures',
+      metricValue: '1',
+      defaultValue: 0,
+    });
+
+    for (const [id, metricFilter] of [
+      ['NotifyNewEntrySwallowedExceptionAlarm', swallowedExceptions],
+      ['NewsCrawlerWriteFailureAlarm', crawlerWriteFailures],
+    ] as const) {
+      // defaultValue 0 keeps the alarm returning to OK between failures, so the
+      // next one is a state change and fires the action again.
+      const alarm = new Alarm(this, id, {
+        metric: metricFilter.metric({ statistic: 'Sum', period: Duration.minutes(5) }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        treatMissingData: TreatMissingData.NOT_BREACHING,
+      });
+      alarm.addAlarmAction(alarmAction);
     }
   }
 }

@@ -37,6 +37,10 @@ ssm = boto3.client("ssm")
 # Add new Responses-only model IDs here.
 RESPONSES_ONLY_MODEL_IDS = frozenset({"openai.gpt-5.6-terra", "openai.gpt-5.6-luna"})
 
+# Printed before every swallowed exception. The CDK stack turns this string into
+# a CloudWatch metric, so the two must stay in step.
+UNHANDLED_EXCEPTION_MARKER = "NOTIFY_TO_APP_UNHANDLED_EXCEPTION"
+
 
 def validate_model_config(model_id, model_api_mode):
     """Fail fast when the model ID and the API mode do not match."""
@@ -581,4 +585,9 @@ def handler(event, context):
         if 0 < len(new_data):
             push_notification(new_data)
     except Exception:
+        # Nothing re-raises, so the invocation still succeeds and the article is
+        # never retried (#46). This marker is what the CloudWatch metric filter
+        # counts; matching on "Traceback" instead would also catch stack traces
+        # that our dependencies log.
+        print(UNHANDLED_EXCEPTION_MARKER)
         traceback.print_exc()

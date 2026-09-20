@@ -32,9 +32,10 @@ Slack Webhook URL は SSM Parameter Store に SecureString として登録する
 現在登録済みのパラメータ名:
 - `/WhatsNew/URL` — AwsWhatsNew notifier 用
 - `/WhatsNewF1/URL` — F1WhatsNew notifier 用
+- `/WhatsNew/AlertURL` — CloudWatch アラームの通知用 (`#whats-new-alerts`)。`cdk.json` の context キー `alertWebhookUrlParameterName` で指定する。記事配信用とは分けてあり、アラート用 Lambda は配信用パラメータを読めない
 
 新しい notifier を追加する場合:
-1. SSM に SecureString でパラメータを作成する
+1. SSM Parameter Store に SecureString でパラメータを作成する
 2. `cdk.json` の `notifiers.<name>.webhookUrlParameterName` に同じパラメータ名を記載する
 3. CDK スタックが自動的に Lambda の IAM ロールに GetParameter 権限を付与する
 

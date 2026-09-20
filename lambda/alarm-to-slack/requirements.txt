@@ -1,0 +1,2 @@
+# boto3 and urllib ship with the Lambda Python runtime, so this function needs
+# nothing installed. The file exists because PythonFunction looks for it.

@@ -385,3 +385,48 @@ class TestMultiParagraphSummary:
         assert "separated by a blank line" in prompt
         # The withdrawn bullet format must stay withdrawn (34dcbb7).
         assert "do not use bullet points, numbered lists, or sub-headings" in prompt
+
+
+STREAM_RECORD = {
+    "eventName": "INSERT",
+    "dynamodb": {
+        "NewImage": {
+            "url": {"S": "https://example.com/a"},
+            "notifier_name": {"S": "TestNotifier"},
+            "title": {"S": "Title"},
+            "category": {"S": "Cat"},
+            "pubtime": {"S": "2026-09-20T00:00:00"},
+        }
+    },
+}
+
+
+class TestHandlerMarksSwallowedExceptions:
+    """The handler keeps swallowing exceptions; the marker is what makes the
+    resulting dropped article visible to CloudWatch (#46)."""
+
+    def test_marker_is_printed_and_nothing_is_raised(self, capsys):
+        with patch("index.push_notification", side_effect=ValueError("boom")):
+            index.handler({"Records": [STREAM_RECORD]}, None)
+        captured = capsys.readouterr()
+        # The marker goes to stdout; print_exc writes the trace to stderr.
+        assert index.UNHANDLED_EXCEPTION_MARKER in captured.out
+        assert "ValueError: boom" in captured.err
+
+    def test_marker_is_absent_on_success(self, capsys):
+        with patch("index.push_notification"):
+            index.handler({"Records": [STREAM_RECORD]}, None)
+        assert index.UNHANDLED_EXCEPTION_MARKER not in capsys.readouterr().out
+
+
+class TestMarkerMatchesTheMetricFilter:
+    """The marker lives in two files. Change one and detection stops silently:
+    the metric reads zero, which the runbook would report as "no failures"."""
+
+    def test_the_stack_filters_on_the_same_string(self):
+        stack = os.path.join(
+            os.path.dirname(__file__), "..", "..", "lib", "whats-new-summary-notifier-stack.ts"
+        )
+        with open(stack) as f:
+            source = f.read()
+        assert f"'\"{index.UNHANDLED_EXCEPTION_MARKER}\"'" in source
