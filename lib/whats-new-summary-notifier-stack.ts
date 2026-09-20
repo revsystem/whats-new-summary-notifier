@@ -219,7 +219,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
 
     // Both functions log their failures and carry on, so an article can go
     // missing without anything else showing it. These alarms are what makes
-    // that visible; see .claude/docs/runbooks/silent-failure-check.md.
+    // that visible; see .claude/runbooks/silent-failure-check.md.
     const alertWebhookUrlParameterName = this.node.tryGetContext('alertWebhookUrlParameterName');
     if (!alertWebhookUrlParameterName) {
       throw new Error('Context value "alertWebhookUrlParameterName" is required for the alarm notifier');

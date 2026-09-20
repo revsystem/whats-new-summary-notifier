@@ -63,30 +63,64 @@ aws logs filter-log-events --profile production \
 
 ## 4. 手当て
 
-再処理の仕組みは無い。必要なら DynamoDB の該当行を消してから次のクロールを待つ。削除すると次の `put_item` が `INSERT` になり、Stream 経由で再び処理される。ただし rss-crawler は公開から 7 日以内の記事しか拾わないため、それを過ぎていれば手動で投稿するしかない。
+再処理の仕組みは無い。DynamoDB の該当行を消すと次の `put_item` が `INSERT` になり、Stream 経由で再び処理される。
+
+`notifier_name` はステップ 2 のログで確認する。Stream イベントの `Keys` に入っており、AWS 記事なら `AwsWhatsNew`、F1 記事なら `F1WhatsNew`。
 
 ```bash
 aws dynamodb delete-item --profile production \
   --table-name "$(aws cloudformation describe-stack-resource --profile production \
     --stack-name WhatsNewSummaryNotifierStack --logical-resource-id WhatsNewRSSHistory2BF2A5DD \
     --query 'StackResourceDetail.PhysicalResourceId' --output text)" \
-  --key '{"url":{"S":"<記事 URL>"},"notifier_name":{"S":"F1WhatsNew"}}'
+  --key '{"url":{"S":"<記事 URL>"},"notifier_name":{"S":"<notifier_name>"}}'
 ```
+
+削除しても再処理されるとは限らない。rss-crawler は次の 2 つをどちらも満たすものしか書き込まない。RSS フィードがその記事をまだ配信していること、そして公開からの経過が 7 日を超えていないこと（`recently_published()` の判定は `elapsed_time.days > 7` なので、7 日 23 時間台までは通る）。フィードから落ちていれば削除しても何も起きないので、その場合は手動で投稿する。
 
 同じ原因が繰り返すなら #46 に記録して、リトライと DLQ の導入を検討する。
 
 ## 5. アラート経路そのものの確認
 
-アラート用 Lambda が落ちても誰も通知しない。SSM の Webhook が失効していないかを、検査のたびに 1 度だけ疎通させて確かめる。
+アラート用 Lambda が落ちても誰も通知しない。検査のたびにアラームを 1 度発火させて、経路全体を通す。
+
+アクションは ALARM への遷移でしか発火しない。すでに ALARM なら一度 OK に戻してから上げる。
 
 ```bash
-URL=$(aws ssm get-parameter --name /WhatsNew/AlertURL --with-decryption --profile production \
-  --query Parameter.Value --output text)
-curl -s -X POST -H 'Content-Type: application/json' \
-  -d '{"text":"定期検査: アラート経路の疎通確認"}' "$URL"
+ALARM_NAME=$(aws cloudwatch describe-alarms --profile production \
+  --alarm-name-prefix WhatsNewSummaryNotifierStack \
+  --query 'MetricAlarms[?contains(AlarmName,`NotifyNewEntrySwallowedException`)].AlarmName' \
+  --output text)
+aws cloudwatch set-alarm-state --profile production --alarm-name "$ALARM_NAME" \
+  --state-value OK --state-reason '定期検査: 事前リセット'
+aws cloudwatch set-alarm-state --profile production --alarm-name "$ALARM_NAME" \
+  --state-value ALARM --state-reason '定期検査: 通知経路の確認'
 ```
 
-`ok` が返り、`#whats-new-alerts` にメッセージが届けば正常。
+`#whats-new-alerts` に投稿が届けば、アラーム、Lambda の権限、Parameter Store の Webhook、Slack への到達までがすべて生きている。届かない場合は Lambda 側のログを見る。
+
+```bash
+aws logs filter-log-events --profile production \
+  --log-group-name /aws/lambda/AlarmToSlack \
+  --start-time "$(($(date +%s) - 600))000" \
+  --query 'events[].message' --output text
+```
+
+## 6. フィルターが生きていることの確認
+
+ステップ 1 が 0 件なのは「失敗していない」か「フィルターが壊れている」かのどちらか。マーカー文字列は `lambda/notify-to-app/index.py` と `lib/whats-new-summary-notifier-stack.ts` の 2 箇所にあり、片方だけ変えると検出が静かに止まる。四半期に一度、意図的にマーカーを出して 1 が記録されることを確かめる。
+
+```bash
+aws logs put-log-events --profile production \
+  --log-group-name /aws/lambda/NotifyNewEntry \
+  --log-stream-name "runbook-check-$(date +%Y%m%d)" \
+  --log-events "timestamp=$(date +%s)000,message=NOTIFY_TO_APP_UNHANDLED_EXCEPTION"
+```
+
+ログストリームが無ければ `aws logs create-log-stream` で先に作る。5 分ほど待ってステップ 1 のコマンドを実行し、1 が記録されていれば正常。この操作はアラームも発火させるので、ステップ 5 と兼ねてよい。
+
+## 対象外
+
+Lambda のタイムアウトと OOM は `AWS/Lambda` の `Errors` に出るため、この経路では通知されない。握りつぶしとは別のクラス（Stream のチェックポイントが進まずシャードが滞留する）なので、意図的に分けてある。必要ならコンソールか `Errors` メトリクスで別途確認する。
 
 ## 関連
 

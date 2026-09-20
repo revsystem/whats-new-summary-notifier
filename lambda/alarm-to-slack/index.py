@@ -45,10 +45,14 @@ def build_message(alarm):
 
 
 def console_url(log_group):
-    """Link to the log group. Retention is two weeks, so look within that."""
+    """Link to the log group. Retention is two weeks, so look within that.
+
+    The console escapes the fragment twice: "/" becomes "%2F", and the "%" is
+    then written as "$25". A singly encoded name lands on an empty page.
+    """
 
     region = os.environ["AWS_REGION"]
-    escaped = urllib.parse.quote(log_group, safe="")
+    escaped = urllib.parse.quote(log_group, safe="").replace("%", "$25")
     return (
         f"https://{region}.console.aws.amazon.com/cloudwatch/home"
         f"?region={region}#logsV2:log-groups/log-group/{escaped}"
@@ -74,5 +78,7 @@ def handler(event, context):
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(request) as response:
+    # Without a timeout a hung webhook would hold the function until its own
+    # 30 second limit, and the alarm's async retry would start over from there.
+    with urllib.request.urlopen(request, timeout=10) as response:
         print(f"Slack responded {response.status}")

@@ -30,8 +30,9 @@ class TestBuildMessage:
         assert "NotifyNewEntrySwallowedExceptionAlarm" in text
         assert "ALARM" in text
         assert "Threshold Crossed" in text
-        # The log group name is URL-encoded inside the console link.
-        assert "%2Faws%2Flambda%2FNotifyNewEntry" in text
+        # The console fragment is doubly encoded; a single %2F opens nothing.
+        assert "$252Faws$252Flambda$252FNotifyNewEntry" in text
+        assert "%2Faws" not in text
 
     def test_recovery_reads_differently_from_a_failure(self):
         ok = dict(
