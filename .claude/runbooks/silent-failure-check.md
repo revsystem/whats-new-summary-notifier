@@ -36,6 +36,8 @@ aws logs filter-log-events --profile production \
 
 crawler 側は `--log-group-name /aws/lambda/newsCrawler --filter-pattern '"DynamoDB error writing"'`。
 
+ログストリーム名が `runbook-check-` で始まるものは、ステップ 6 で自分が流したマーカーなので除外する。ステップ 1 の件数にもそのぶんが乗る。
+
 `logStreamName` が分かったら、その前後を読んで記事と例外を特定する。
 
 ```bash
@@ -117,6 +119,10 @@ aws logs put-log-events --profile production \
 ```
 
 ログストリームが無ければ `aws logs create-log-stream` で先に作る。5 分ほど待ってステップ 1 のコマンドを実行し、1 が記録されていれば正常。この操作はアラームも発火させるので、ステップ 5 と兼ねてよい。
+
+流したマーカーは次回以降の検査でも件数に現れる。ログストリーム名を `runbook-check-` で始めておけば、ステップ 2 で実際の失敗と区別できる。
+
+`NotifyNewEntry` のロググループは記事を処理したときしかログが流れない。マーカーやアラームで ALARM にしたあと、次に記事が流れるまでメトリクスに 0 が入らず、アラームは ALARM のまま留まる。クロールは 30 分おきなので通常は 1 時間以内に OK へ戻る。すぐ戻らなくても異常ではない。
 
 ## 対象外
 
