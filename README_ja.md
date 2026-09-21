@@ -45,7 +45,7 @@
 - Unix コマンドを実行できる環境 (Mac、Linux、...)
   - そのような環境がない場合は、AWS Cloud9 を使用することも可能です。[操作環境の準備 (AWS Cloud9)](DEPLOY_ja.md#操作環境の準備-aws-cloud9) をご参照ください。
 - aws-cdk
-  - `npm install -g aws-cdk` でインストール可能です。詳しくは [AWS ドキュメント](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html)を参考にしてください。
+  - `npm install` で開発依存として入るため、`npx cdk` で実行します。グローバルに入れた CLI がこのアプリの出力する cloud assembly を読めないバージョンだと、すべてのコマンドが何もせずに止まります。詳しくは [AWS ドキュメント](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html)を参考にしてください。
 - Docker
   - [`aws-lambda-python-alpha`](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-lambda-python-alpha-readme.html) コンストラクトで Lambda をビルドするために Docker が必要です。詳しくは [Docker ドキュメント](https://docs.docker.com/engine/install/)を参考にしてください。
 

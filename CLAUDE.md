@@ -71,7 +71,7 @@ The application consists of:
 
 ### Alarm Notifier (`lambda/alarm-to-slack/index.py`)
 - Invoked directly by the CloudWatch alarms; no SNS topic in between
-- Reads its webhook from `/WhatsNew/AlertURL`, which is separate from the article feeds
+- Reads its webhook from the parameter named by `alertWebhookUrlParameterName` (`/WhatsNew/AlertURL` by default), separate from the article feeds
 - Posts the alarm state with links to both log groups
 
 ## Development Notes

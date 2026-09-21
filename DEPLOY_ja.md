@@ -23,13 +23,22 @@
 
 Parameter Store を使って 通知用の URL をセキュアに格納します。
 
+パラメータは notifier ごとに必要です。既定の `cdk.json` には `AwsWhatsNew` と `F1WhatsNew` の 2 つがあるため、`/WhatsNew/URL` と `/WhatsNewF1/URL` の両方を登録します。名前は `notifiers.<name>.webhookUrlParameterName` の値と一致させてください。片方でも欠けていると、その notifier の記事を処理したときに通知が失われます。
+
+これに加えて、後述のアラート通知用パラメータが 1 つ必要です。
+
 #### パラメータストア登録 (AWS CLI)
 
 ```bash
 aws ssm put-parameter \
   --name "/WhatsNew/URL" \
   --type "SecureString" \
-  --value "<Webhook URL を入力>"
+  --value "<AWS 記事用の Webhook URL を入力>"
+
+aws ssm put-parameter \
+  --name "/WhatsNewF1/URL" \
+  --type "SecureString" \
+  --value "<F1 記事用の Webhook URL を入力>"
 ```
 
 特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：

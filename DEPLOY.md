@@ -23,13 +23,22 @@ Refer to [this documentation](https://slack.com/help/articles/17542172840595-Bui
 
 Use Parameter Store to securely store the notification URL.
 
+Each notifier needs its own parameter. The default `cdk.json` defines two, `AwsWhatsNew` and `F1WhatsNew`, so register both `/WhatsNew/URL` and `/WhatsNewF1/URL`, matching the `notifiers.<name>.webhookUrlParameterName` values. A notifier whose parameter is missing loses every notification it would have sent.
+
+One more parameter is needed for alerts; see below.
+
 #### Put into Parameter Store (AWS CLI)
 
 ```
 aws ssm put-parameter \
   --name "/WhatsNew/URL" \
   --type "SecureString" \
-  --value "<Input your Webhook URL >"
+  --value "<Input the Webhook URL for AWS articles>"
+
+aws ssm put-parameter \
+  --name "/WhatsNewF1/URL" \
+  --type "SecureString" \
+  --value "<Input the Webhook URL for F1 articles>"
 ```
 
 #### The alert parameter
