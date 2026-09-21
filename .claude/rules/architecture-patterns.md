@@ -10,6 +10,14 @@
 - notify-to-app: DynamoDB Stream のトリガーで起動し、Bedrock で要約して Slack に投稿する
 - 2 つの Lambda は直接呼び出し関係にない。DynamoDB Stream が唯一の連結点
 
+監視の経路はこれとは独立している: CloudWatch Logs (メトリクスフィルター) → CloudWatch アラーム → alarm-to-slack Lambda → Slack
+
+- alarm-to-slack: CloudWatch アラームのアクションから直接呼ばれる。SNS は挟まない
+- 記事配信の経路とは Webhook を分ける。`/WhatsNew/AlertURL` を読み、配信用パラメータへの権限は持たない
+- 検出対象は notify-to-app と rss-crawler が握りつぶす失敗。どちらも例外をログに出して処理を続けるため、Lambda の `Errors` メトリクスには現れない (#46)
+- notify-to-app が出すマーカー文字列 `NOTIFY_TO_APP_UNHANDLED_EXCEPTION` は `lambda/notify-to-app/index.py` と `lib/whats-new-summary-notifier-stack.ts` の 2 箇所にある。片方だけ変えると検出が静かに止まる。`lambda/notify-to-app/test_index.py` の `TestMarkerMatchesTheMetricFilter` が乖離を検出する
+- 運用手順は `.claude/runbooks/silent-failure-check.md`
+
 ## DynamoDB 設計
 
 テーブル名: `WhatsNewRSSHistory` (CDK で生成される物理名は異なる)

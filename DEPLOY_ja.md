@@ -42,6 +42,21 @@ aws ssm put-parameter \
   --profile your-profile-name
 ```
 
+#### アラート通知用のパラメータ
+
+記事の配信とは別に、要約や書き込みの失敗を検出したときの通知先を登録します。運用者向けなので、記事の配信先とは違うチャンネルの Webhook を使ってください。読者向けチャンネルにエラーが流れるのを防ぐためと、アラート用 Lambda に配信用 Webhook の読み取り権限を与えないためです。
+
+```bash
+aws ssm put-parameter \
+  --name "/WhatsNew/AlertURL" \
+  --type "SecureString" \
+  --value "<アラート用の Webhook URL を入力>"
+```
+
+パラメータ名を変える場合は `cdk.json` の context キー `alertWebhookUrlParameterName` も同じ値に書き換えます。このキーは必須で、未設定だと `cdk synth` が失敗します。
+
+検出の仕組みと検査手順は `.claude/runbooks/silent-failure-check.md` にあります。
+
 ### 言語設定の変更 (オプション)
 
 このアセットはデフォルトで日本語の要約を出力するように設定されています。英語等の他言語の出力を行う場合は、`cdk.json` を開き、`context` 内の `notifiers` 内の `summarizerName` を `AwsSolutionsArchitectJapanese` から `AwsSolutionsArchitectEnglish` などに書き換えてください。その他の設定オプションについては[設定オプション](#設定オプション)を参照してください。

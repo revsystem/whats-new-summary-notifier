@@ -32,6 +32,21 @@ aws ssm put-parameter \
   --value "<Input your Webhook URL >"
 ```
 
+#### The alert parameter
+
+Register a separate destination for the failures the functions detect but cannot deliver around. Point it at a channel for whoever operates the stack, not the one the articles go to: readers should not see stack traces, and the alerting function should not hold read access to the delivery webhooks.
+
+```
+aws ssm put-parameter \
+  --name "/WhatsNew/AlertURL" \
+  --type "SecureString" \
+  --value "<Input your alert Webhook URL>"
+```
+
+To use a different name, set the `alertWebhookUrlParameterName` context key in `cdk.json` to match. The key is required; `cdk synth` fails without it.
+
+`.claude/runbooks/silent-failure-check.md` covers what is detected and how to check it.
+
 ### Changing the Language Setting (Optional)
 
 This asset is set up to output summaries in Japanese (日本語) by default. If you want to generate output in other languages such as English, open the `cdk.json` file and change the `summarizerName` value inside the `notifiers` object within the `context` section from `AwsSolutionsArchitectJapanese` to `AwsSolutionsArchitectEnglish` or another language. For more information on other configuration options, see [Configuration Options](#configuration-options).
