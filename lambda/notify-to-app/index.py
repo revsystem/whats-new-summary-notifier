@@ -14,7 +14,7 @@ import boto3
 import cloudscraper
 import openai
 from botocore.exceptions import ClientError
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from strands import Agent
 from strands.models import BedrockModel
 from strands.models.openai_responses import OpenAIResponsesModel
@@ -122,11 +122,98 @@ def get_blog_content(url):
         main = soup.find("main")
         print(f"Parsed {url}: found_main={main is not None}")
 
-        return main.text if main else None
+        return _article_text(main) if main else None
 
     except Exception as e:
         print(f"Error accessing {url}: {e}")
         return None
+
+
+# A block this short is a byline or a caption, not a headline list, and the
+# ratio below says too little about it to act on.
+MIN_BLOCK_LENGTH = 40
+# Above this share of link text a block is a list of other articles rather
+# than prose: the sentences in an article are mostly not links.
+LINK_DENSE_RATIO = 0.6
+
+
+def _is_headline_list(element):
+    """Say whether an element is a list of other articles rather than prose."""
+
+    text = element.get_text(" ", strip=True)
+    if len(text) < MIN_BLOCK_LENGTH:
+        return False
+
+    link_text = sum(len(a.get_text(" ", strip=True)) for a in element.find_all("a"))
+    if link_text / len(text) <= LINK_DENSE_RATIO:
+        return False
+
+    # A wrapper holding a short article beside a long sidebar is link-dense
+    # too. It still carries paragraphs, so descend into it instead of taking
+    # the article with the sidebar.
+    return not any(
+        len(p.get_text(" ", strip=True)) >= MIN_BLOCK_LENGTH
+        for p in element.find_all("p")
+    )
+
+
+def _strip_link_lists(node):
+    """Remove the lists of other articles that sit inside the page body.
+
+    racingnews365 puts "Most read" and related-article blocks inside <main>,
+    so their driver names reached the model as if the article had named them.
+    A summary of an Antonelli article called him マックス・アントネッリ, taking the
+    first name from a Verstappen headline in that chrome; the same names also
+    keep absent drivers in the glossary that _filter_glossary_names trims.
+
+    Link density tells the two apart. Dropping everything but <p> would also
+    work on racingnews365, but it costs an AWS blog post a third of its text:
+    the headings and bullet lists there carry the explanation.
+    """
+
+    for child in list(node.children):
+        if not isinstance(child, Tag):
+            continue
+        if _is_headline_list(child):
+            child.decompose()
+        else:
+            _strip_link_lists(child)
+
+
+# WordPress wraps a post's body in this class, and racefans.net is built on
+# WordPress. Taking it skips the sidebar, the tag list and the comment
+# section in one step, rather than judging each of them by link density.
+WORDPRESS_CONTENT_CLASS = ".entry-content"
+# Below this the match is a teaser or an empty shell, not the article.
+MIN_CONTENT_LENGTH = 200
+
+
+def _article_root(main):
+    """Return the element that holds the article body.
+
+    Of the pages checked, only racefans.net is WordPress: racingnews365
+    carries no WordPress marker, the AWS blogs (en and jp) render
+    article.blog-post, and AWS What's New renders an AEM grid. So the
+    theme's container is used when it is there, and <main> stands in when
+    it is not.
+    """
+
+    candidates = [
+        element
+        for element in main.select(WORDPRESS_CONTENT_CLASS)
+        if len(element.get_text(" ", strip=True)) >= MIN_CONTENT_LENGTH
+    ]
+    if candidates:
+        return max(candidates, key=lambda element: len(element.get_text(" ", strip=True)))
+    return main
+
+
+def _article_text(main):
+    """Return the article body inside <main>, without the chrome around it."""
+
+    root = _article_root(main)
+    _strip_link_lists(root)
+    return root.get_text(" ", strip=True)
 
 
 def _fold_accents(text):
