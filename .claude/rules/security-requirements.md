@@ -25,7 +25,8 @@ NagSuppressions.addResourceSuppressions(resource, [
 Webhook URL は必ず SSM Parameter Store の SecureString として保存する。
 
 - 平文での保存・コード内へのハードコードは禁止
-- SSM パラメータ名は `cdk.json` の `notifiers.<name>.webhookUrlParameterName` で定義する (例: `/WhatsNew/URL`, `/WhatsNewF1/URL`)
+- 記事配信用のパラメータ名は `cdk.json` の `notifiers.<name>.webhookUrlParameterName` で定義する (例: `/WhatsNew/URL`, `/WhatsNewF1/URL`)
+- アラート通知用のパラメータ名は notifier に属さないため、`cdk.json` の context キー `alertWebhookUrlParameterName` で定義する (現在 `/WhatsNew/AlertURL`)。記事配信用とは分けること。アラート用 Lambda に配信用 Webhook の読み取り権限を与えない
 - CDK スタックで `ssm.StringParameter.fromSecureStringParameterAttributes` を使って参照する
 - Lambda 環境変数に URL を直接設定してはならない
 

@@ -23,13 +23,22 @@
 
 Parameter Store を使って 通知用の URL をセキュアに格納します。
 
+パラメータは notifier ごとに必要です。既定の `cdk.json` には `AwsWhatsNew` と `F1WhatsNew` の 2 つがあるため、`/WhatsNew/URL` と `/WhatsNewF1/URL` の両方を登録します。名前は `notifiers.<name>.webhookUrlParameterName` の値と一致させてください。片方でも欠けていると、その notifier の記事を処理したときに通知が失われます。
+
+これに加えて、後述のアラート通知用パラメータが 1 つ必要です。
+
 #### パラメータストア登録 (AWS CLI)
 
 ```bash
 aws ssm put-parameter \
   --name "/WhatsNew/URL" \
   --type "SecureString" \
-  --value "<Webhook URL を入力>"
+  --value "<AWS 記事用の Webhook URL を入力>"
+
+aws ssm put-parameter \
+  --name "/WhatsNewF1/URL" \
+  --type "SecureString" \
+  --value "<F1 記事用の Webhook URL を入力>"
 ```
 
 特定のAWSプロファイルを使用している場合は、`--profile`オプションを追加してください：
@@ -41,6 +50,21 @@ aws ssm put-parameter \
   --value "<Webhook URL を入力>" \
   --profile your-profile-name
 ```
+
+#### アラート通知用のパラメータ
+
+記事の配信とは別に、要約や書き込みの失敗を検出したときの通知先を登録します。運用者向けなので、記事の配信先とは違うチャンネルの Webhook を使ってください。読者向けチャンネルにエラーが流れるのを防ぐためと、アラート用 Lambda に配信用 Webhook の読み取り権限を与えないためです。
+
+```bash
+aws ssm put-parameter \
+  --name "/WhatsNew/AlertURL" \
+  --type "SecureString" \
+  --value "<アラート用の Webhook URL を入力>"
+```
+
+パラメータ名を変える場合は `cdk.json` の context キー `alertWebhookUrlParameterName` も同じ値に書き換えます。このキーは必須で、未設定だと `cdk synth` が失敗します。
+
+検出の仕組みと検査手順は `.claude/runbooks/silent-failure-check.md` にあります。
 
 ### 言語設定の変更 (オプション)
 

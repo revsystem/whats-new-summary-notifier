@@ -23,14 +23,38 @@ Refer to [this documentation](https://slack.com/help/articles/17542172840595-Bui
 
 Use Parameter Store to securely store the notification URL.
 
+Each notifier needs its own parameter. The default `cdk.json` defines two, `AwsWhatsNew` and `F1WhatsNew`, so register both `/WhatsNew/URL` and `/WhatsNewF1/URL`, matching the `notifiers.<name>.webhookUrlParameterName` values. A notifier whose parameter is missing loses every notification it would have sent.
+
+One more parameter is needed for alerts; see below.
+
 #### Put into Parameter Store (AWS CLI)
 
 ```
 aws ssm put-parameter \
   --name "/WhatsNew/URL" \
   --type "SecureString" \
-  --value "<Input your Webhook URL >"
+  --value "<Input the Webhook URL for AWS articles>"
+
+aws ssm put-parameter \
+  --name "/WhatsNewF1/URL" \
+  --type "SecureString" \
+  --value "<Input the Webhook URL for F1 articles>"
 ```
+
+#### The alert parameter
+
+Register a separate destination for the failures the functions detect but cannot deliver around. Point it at a channel for whoever operates the stack, not the one the articles go to: readers should not see stack traces, and the alerting function should not hold read access to the delivery webhooks.
+
+```
+aws ssm put-parameter \
+  --name "/WhatsNew/AlertURL" \
+  --type "SecureString" \
+  --value "<Input your alert Webhook URL>"
+```
+
+To use a different name, set the `alertWebhookUrlParameterName` context key in `cdk.json` to match. The key is required; `cdk synth` fails without it.
+
+`.claude/runbooks/silent-failure-check.md` covers what is detected and how to check it.
 
 ### Changing the Language Setting (Optional)
 

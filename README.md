@@ -49,7 +49,7 @@ The project pins direct dependencies in `requirements.txt` (e.g. `package>=x.y.z
 - An environment where you can execute Unix commands (Mac, Linux, ...)
   - If you don't have such an environment, you can also use AWS Cloud9. Please refer to [Preparing the Operating Environment (AWS Cloud9)](DEPLOY.md#preparing-the-deployment-environment-aws-cloud9).
 - aws-cdk
-  - You can install it with `npm install -g aws-cdk`. For more details, please refer to the [AWS documentation](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html).
+  - Comes with `npm install` as a dev dependency; run it as `npx cdk`. A globally installed CLI can be a version that cannot read the cloud assembly this app emits, which stops every command before it does anything. For background, see the [AWS documentation](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html).
 - Docker
   - Docker is required to build Lambda functions using the [`aws-lambda-python-alpha`](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-lambda-python-alpha-readme.html) construct. Please refer to the [Docker documentation](https://docs.docker.com/engine/install/) for more information.
 

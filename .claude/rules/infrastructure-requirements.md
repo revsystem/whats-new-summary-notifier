@@ -18,6 +18,7 @@
 | `modelRegion` | `us-west-2` | Bedrock 推論リージョン |
 | `modelId` | `openai.gpt-5.6-luna` | 推論モデルの model ID |
 | `modelApiMode` | `responses` | 呼び出し方式 (`converse` / `responses`) |
+| `alertWebhookUrlParameterName` | `/WhatsNew/AlertURL` | アラート通知先の SSM パラメータ名。必須で、未設定だと synth が失敗する |
 
 `modelId` と `modelApiMode` は対応していなければならない。`converse` は `bedrock-runtime` の Converse API、`responses` は `bedrock-mantle` の Responses API を使う。不正な `modelApiMode` は CDK synth 時に、`modelId` との不一致は Lambda 起動時 (`validate_model_config`) に検出される。Responses 経路の model ID は `lambda/notify-to-app/index.py` の `RESPONSES_ONLY_MODEL_IDS` に登録する。
 
@@ -44,7 +45,10 @@ Slack Webhook URL は SSM Parameter Store に SecureString として登録する
 Lambda のロググループ名は CDK で固定値として設定されている:
 - NotifyNewEntry: `/aws/lambda/NotifyNewEntry`
 - NewsCrawler: `/aws/lambda/newsCrawler`
-- 保持期間: 2 週間 (`RetentionDays.TWO_WEEKS`)
+- AlarmToSlack: `/aws/lambda/AlarmToSlack`
+- 保持期間: いずれも 2 週間 (`RetentionDays.TWO_WEEKS`)
+
+前 2 つにはメトリクスフィルターが付いており、握りつぶされた失敗を数えている。詳細は `.claude/rules/architecture-patterns.md` と `.claude/runbooks/silent-failure-check.md`。保持期間が 2 週間なので、取りこぼしの調査はそれより前に遡れない。
 
 ## Cost Explorer でのモデルコスト集計
 
@@ -80,6 +84,7 @@ production アカウントには当プロジェクト以外の LLM 費用（Clau
 |--------|-------------|
 | notify-to-app | 600 秒 (`modelApiMode=responses` 時) / 180 秒 (`converse` 時) |
 | rss-crawler | 60 秒 |
+| alarm-to-slack | 30 秒 (Webhook への POST は 10 秒でタイムアウトさせる) |
 
 Bedrock の推論と Web スクレイピングを含むため notify-to-app のタイムアウトは長め。`responses` 経路は推論モデルで所要時間が伸びるためスタックが自動的に 600 秒へ引き上げる (`lib/whats-new-summary-notifier-stack.ts`)。変更する場合はレート制限との兼ね合いを考慮する。メモリは 512MB (OOM 対策で 256MB から引き上げ済み)。
 

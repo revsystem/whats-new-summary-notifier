@@ -27,12 +27,15 @@ The application consists of:
 - DynamoDB Table: Stores RSS history to avoid duplicate processing
 - EventBridge Rules: Schedules RSS crawling based on configured cron expressions
 - SSM Parameter Store: Securely stores Slack webhook URLs
+- CloudWatch metric filters and alarms: Count the failures both Lambdas log and swallow
+- Alarm Notifier Lambda: Invoked by those alarms, posts to a Slack channel separate from the article feeds
 
 ## Key Files
 
 - `bin/whats-new-summary-notifier.ts` - CDK app entry point
 - `lib/whats-new-summary-notifier-stack.ts` - Stack definition (DynamoDB, Lambdas, EventBridge, SSM)
-- `cdk.json` - Application configuration (modelRegion, modelId, summarizers, notifiers)
+- `cdk.json` - Application configuration (modelRegion, modelId, summarizers, notifiers, alertWebhookUrlParameterName)
+- `.claude/runbooks/silent-failure-check.md` - Periodic check for articles dropped without a trace
 
 ## Build and Development Commands
 
@@ -64,6 +67,12 @@ The application consists of:
 - Scrapes full article content using cloudscraper and BeautifulSoup (targets `<main>` tag)
 - Summarizes content using Strands Agents SDK with Bedrock
 - Posts formatted messages to Slack with Twitter sharing links
+- Logs a marker before swallowing an exception so the dropped article is countable; see `.claude/rules/architecture-patterns.md`
+
+### Alarm Notifier (`lambda/alarm-to-slack/index.py`)
+- Invoked directly by the CloudWatch alarms; no SNS topic in between
+- Reads its webhook from the parameter named by `alertWebhookUrlParameterName` (`/WhatsNew/AlertURL` by default), separate from the article feeds
+- Posts the alarm state with links to both log groups
 
 ## Development Notes
 
