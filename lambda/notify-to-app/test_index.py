@@ -250,8 +250,8 @@ class TestGetBlogContent:
         mock_response = MagicMock()
         mock_response.text = (
             "<html><body><main>"
-            "<div class='entry-content'><p>Carlos Sainz will use his original "
-            "helmet design this weekend.</p></div>"
+            "<div class='entry-content'><p>Sainz keeps his old helmet.</p>"
+            "</div>"
             "<div class='comments-area'><p>A reader writes: this is exactly "
             "why Lewis Hamilton was robbed of an eighth title, and nobody at "
             "the FIA wants to talk about it any more.</p></div>"
@@ -261,7 +261,7 @@ class TestGetBlogContent:
         mock_scraper.get.return_value = mock_response
         with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
             result = index.get_blog_content("https://example.com")
-        assert "original helmet design" in result
+        assert "Sainz keeps his old helmet" in result
         assert "A reader writes" not in result
 
     def test_http_error_returns_none(self):

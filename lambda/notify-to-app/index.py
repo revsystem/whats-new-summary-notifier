@@ -198,13 +198,13 @@ def _article_root(main):
     it is not.
     """
 
-    # A short post is still a post: the length check only skips a container
-    # the theme left empty, because falling back to <main> would hand the
-    # model the comment section this container exists to leave out.
+    # A short post is still a post, so the test is emptiness and not a
+    # length: falling back to <main> would hand the model the comment
+    # section this container exists to leave out.
     candidates = [
         element
         for element in main.select(WORDPRESS_CONTENT_CLASS)
-        if len(element.get_text(" ", strip=True)) >= MIN_BLOCK_LENGTH
+        if element.get_text(" ", strip=True)
     ]
     if candidates:
         return max(candidates, key=lambda element: len(element.get_text(" ", strip=True)))
