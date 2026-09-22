@@ -292,6 +292,50 @@ class TestGetBlogContent:
         assert "wrist injury" in result
         assert "Verstappen" not in result
 
+    def test_the_wordpress_container_beats_a_longer_article(self):
+        # On racefans.net <article> (4158 characters on the Masi post) wraps
+        # .entry-content (3423) along with the byline and the tag list, so
+        # the order of the selectors decides, not their length.
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main><article>"
+            "<p>Posted on 21st September 2026 by Keith Collantine in the "
+            "2021 F1 season, Formula 1, tagged Lewis Hamilton, Michael Masi "
+            "and Toto Wolff.</p>"
+            "<div class='entry-content'><p>Mercedes team principal Toto "
+            "Wolff has revealed details of his conversations with former "
+            "race director Michael Masi.</p></div>"
+            "</article></main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "Michael Masi" in result
+        assert "Keith Collantine" not in result
+
+    def test_the_longest_article_is_taken(self):
+        # Every page measured holds exactly one non-empty <article>, which is
+        # the story. Length is the tie-break where a site has more than one,
+        # and no such page has been seen, so this pins the rule rather than a
+        # behaviour observed in the wild.
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main>"
+            "<article><p>Teaser: read our full report on the Azerbaijan "
+            "Grand Prix weekend.</p></article>"
+            "<article><p>Isack Hadjar will return to Red Bull at the "
+            "Azerbaijan Grand Prix after missing the last three races with a "
+            "wrist injury, the team has confirmed on Tuesday morning.</p>"
+            "</article></main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "wrist injury" in result
+        assert "Teaser" not in result
+
     def test_http_error_returns_none(self):
         mock_scraper = MagicMock()
         mock_scraper.get.side_effect = Exception("Connection refused")

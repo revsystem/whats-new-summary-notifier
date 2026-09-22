@@ -202,6 +202,9 @@ def _article_root(main):
     Its <article> leaves all of that outside.
     """
 
+    # Every page measured holds one non-empty match, so the length below is
+    # only a tie-break; whether a site puts a longer <article> beside its
+    # story is unverified.
     for selector in CONTENT_SELECTORS:
         # A short post is still a post, so the test is emptiness and not a
         # length: falling back to <main> would hand the model the comment
