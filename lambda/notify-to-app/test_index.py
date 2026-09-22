@@ -203,6 +203,67 @@ class TestGetBlogContent:
             result = index.get_blog_content("https://example.com")
         assert "The article body is rendered outside" in result
 
+    def test_a_page_that_is_all_links_returns_none(self):
+        # push_notification falls back to the title on None, not on "", so an
+        # empty body would reach the model as an empty prompt.
+        mock_response = MagicMock()
+        headlines = "".join(
+            f"<li><a href='/{i}'>Lewis Hamilton issues strong denial as Max "
+            f"Verstappen gains momentum</a></li>"
+            for i in range(10)
+        )
+        mock_response.text = f"<html><body><main><ul>{headlines}</ul></main></body></html>"
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert result is None
+
+    def test_an_advert_paragraph_is_dropped(self):
+        # racefans.net repeats this line through the post, and ends it with a
+        # paragraph of related headlines. Both are paragraphs, and both are
+        # link text almost end to end.
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main><div class='entry-content'>"
+            "<p>Mercedes team principal Toto Wolff has revealed details of "
+            "his conversations with former race director Michael Masi before "
+            "the 2021 title decider in Abu Dhabi.</p>"
+            "<p><a href='/s'>Advert</a> | <a href='/s'>Become a RaceFans "
+            "supporter and go ad-free</a></p>"
+            "<p><a href='/a'>Formula 1 cuts grand prix distances for 2027</a> "
+            "<a href='/b'>Poll: Should F1 change its Virtual Safety Car "
+            "rules?</a></p>"
+            "</div></main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "Michael Masi" in result
+        assert "Become a RaceFans supporter" not in result
+        assert "grand prix distances" not in result
+
+    def test_a_short_wordpress_post_does_not_fall_back_to_the_comments(self):
+        # A photo post's body is short. Falling back to <main> for it would
+        # hand the model the comment section this container exists to skip.
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main>"
+            "<div class='entry-content'><p>Carlos Sainz will use his original "
+            "helmet design this weekend.</p></div>"
+            "<div class='comments-area'><p>A reader writes: this is exactly "
+            "why Lewis Hamilton was robbed of an eighth title, and nobody at "
+            "the FIA wants to talk about it any more.</p></div>"
+            "</main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "original helmet design" in result
+        assert "A reader writes" not in result
+
     def test_http_error_returns_none(self):
         mock_scraper = MagicMock()
         mock_scraper.get.side_effect = Exception("Connection refused")

@@ -122,7 +122,7 @@ def get_blog_content(url):
         main = soup.find("main")
         print(f"Parsed {url}: found_main={main is not None}")
 
-        return _article_text(main) if main else None
+        return (_article_text(main) or None) if main else None
 
     except Exception as e:
         print(f"Error accessing {url}: {e}")
@@ -150,7 +150,9 @@ def _is_headline_list(element):
 
     # A wrapper holding a short article beside a long sidebar is link-dense
     # too. It still carries paragraphs, so descend into it instead of taking
-    # the article with the sidebar.
+    # the article with the sidebar. A paragraph is judged by the same ratio
+    # as anything else: on racefans.net the paragraphs over the threshold are
+    # "Advert | Become a supporter" and a run of related headlines, not prose.
     return not any(
         len(p.get_text(" ", strip=True)) >= MIN_BLOCK_LENGTH
         for p in element.find_all("p")
@@ -184,8 +186,6 @@ def _strip_link_lists(node):
 # WordPress. Taking it skips the sidebar, the tag list and the comment
 # section in one step, rather than judging each of them by link density.
 WORDPRESS_CONTENT_CLASS = ".entry-content"
-# Below this the match is a teaser or an empty shell, not the article.
-MIN_CONTENT_LENGTH = 200
 
 
 def _article_root(main):
@@ -198,10 +198,13 @@ def _article_root(main):
     it is not.
     """
 
+    # A short post is still a post: the length check only skips a container
+    # the theme left empty, because falling back to <main> would hand the
+    # model the comment section this container exists to leave out.
     candidates = [
         element
         for element in main.select(WORDPRESS_CONTENT_CLASS)
-        if len(element.get_text(" ", strip=True)) >= MIN_CONTENT_LENGTH
+        if len(element.get_text(" ", strip=True)) >= MIN_BLOCK_LENGTH
     ]
     if candidates:
         return max(candidates, key=lambda element: len(element.get_text(" ", strip=True)))
