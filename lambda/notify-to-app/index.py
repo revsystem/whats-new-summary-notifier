@@ -185,29 +185,32 @@ def _strip_link_lists(node):
 # WordPress wraps a post's body in this class, and racefans.net is built on
 # WordPress. Taking it skips the sidebar, the tag list and the comment
 # section in one step, rather than judging each of them by link density.
-WORDPRESS_CONTENT_CLASS = ".entry-content"
+# In order of how well each one pins down the article body. WordPress names
+# its container, and racefans.net is the WordPress site here; <article> is
+# the semantic element the other sites reach for, except AWS What's New,
+# which has neither and falls back to <main>.
+CONTENT_SELECTORS = (".entry-content", "article")
 
 
 def _article_root(main):
     """Return the element that holds the article body.
 
-    Of the pages checked, only racefans.net is WordPress: racingnews365
-    carries no WordPress marker, the AWS blogs (en and jp) render
-    article.blog-post, and AWS What's New renders an AEM grid. So the
-    theme's container is used when it is there, and <main> stands in when
-    it is not.
+    A named container beats the link-density pass below, which only judges a
+    block by how it reads. motorsport.com shows why: its "More from ..."
+    lists print every headline twice, once as the link and once as plain
+    text, so the link share lands under the threshold and the list survives.
+    Its <article> leaves all of that outside.
     """
 
-    # A short post is still a post, so the test is emptiness and not a
-    # length: falling back to <main> would hand the model the comment
-    # section this container exists to leave out.
-    candidates = [
-        element
-        for element in main.select(WORDPRESS_CONTENT_CLASS)
-        if element.get_text(" ", strip=True)
-    ]
-    if candidates:
-        return max(candidates, key=lambda element: len(element.get_text(" ", strip=True)))
+    for selector in CONTENT_SELECTORS:
+        # A short post is still a post, so the test is emptiness and not a
+        # length: falling back to <main> would hand the model the comment
+        # section these containers exist to leave out.
+        candidates = [
+            element for element in main.select(selector) if element.get_text(" ", strip=True)
+        ]
+        if candidates:
+            return max(candidates, key=lambda element: len(element.get_text(" ", strip=True)))
     return main
 
 

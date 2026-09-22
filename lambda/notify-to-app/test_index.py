@@ -264,6 +264,34 @@ class TestGetBlogContent:
         assert "Sainz keeps his old helmet" in result
         assert "A reader writes" not in result
 
+    def test_the_article_element_wins_over_the_rest_of_main(self):
+        # motorsport.com ends its <main> with "More from ..." lists that print
+        # each headline twice, once as the link and once as plain text. That
+        # halves the link share and carries the list under the ratio, so the
+        # names of drivers the article never mentions survived. <article>
+        # holds the story itself, and is preferred where no WordPress
+        # container exists.
+        headline = (
+            "Why progress won't satisfy Red Bull until it can give Max "
+            "Verstappen a winning car"
+        )
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main>"
+            "<article><p>Isack Hadjar will return to Red Bull at the "
+            "Azerbaijan Grand Prix after missing the last three races with a "
+            "wrist injury, the team has confirmed.</p></article>"
+            "<div class='related'><h2>More from Red Bull Racing</h2>"
+            f"<a href='/a'>{headline}</a><span>{headline}</span>"
+            "</div></main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "wrist injury" in result
+        assert "Verstappen" not in result
+
     def test_http_error_returns_none(self):
         mock_scraper = MagicMock()
         mock_scraper.get.side_effect = Exception("Connection refused")
