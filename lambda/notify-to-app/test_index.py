@@ -315,10 +315,10 @@ class TestGetBlogContent:
         assert "Keith Collantine" not in result
 
     def test_the_longest_article_is_taken(self):
-        # Every page measured holds exactly one non-empty <article>, which is
-        # the story. Length is the tie-break where a site has more than one,
-        # and no such page has been seen, so this pins the rule rather than a
-        # behaviour observed in the wild.
+        # Where a page holds more than one <article> the longest wins. Every
+        # page measured holds exactly one, which is the story, so this pins
+        # the rule rather than a behaviour observed in the wild: a site that
+        # puts a longer <article> beside its story would defeat it.
         mock_response = MagicMock()
         mock_response.text = (
             "<html><body><main>"
