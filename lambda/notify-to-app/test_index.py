@@ -70,6 +70,272 @@ class TestGetBlogContent:
             result = index.get_blog_content("https://example.com")
         assert result is None
 
+    def test_headline_lists_around_the_prose_are_dropped(self):
+        # racingnews365 puts "Most read" and related-article lists inside
+        # <main>. Their driver names reached the model and the summary of an
+        # Antonelli article called him マックス・アントネッリ, borrowing the first
+        # name of a Verstappen headline in the sidebar.
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main>"
+            "<article><p>Kimi Antonelli has denied that he is the number one "
+            "driver at Mercedes, after extending his championship lead over "
+            "George Russell to 81 points this season.</p>"
+            "<p>The Italian said the team gives both drivers the same "
+            "opportunities, and that no one holds priority inside it.</p>"
+            "</article>"
+            "<section><h2>Most read</h2><ul>"
+            "<li><a href='/a'>Max Verstappen reacts to major Lando Norris "
+            "career announcement</a></li>"
+            "<li><a href='/b'>Lewis Hamilton issues strong denial</a></li>"
+            "</ul></section>"
+            "</main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "Antonelli" in result
+        assert "Russell" in result
+        assert "Verstappen" not in result
+        assert "Hamilton" not in result
+
+    def test_bullet_lists_in_the_article_are_kept(self):
+        # AWS blog posts explain a feature in headings and bullet lists as
+        # much as in paragraphs. Keeping only <p> would cost such a post a
+        # third of its text, so the rule is link density, not the tag.
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main>"
+            "<h2>Solution overview</h2>"
+            "<ul><li>Instruction-driven detection: the detection logic lives "
+            "entirely in the instructions and a thin parsing layer.</li>"
+            "<li>Configurable backend: the model is reached through a uniform "
+            "inference interface, so the detector is agnostic to the "
+            "backend.</li></ul>"
+            "</main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "Solution overview" in result
+        assert "Instruction-driven detection" in result
+        assert "Configurable backend" in result
+
+    def test_a_short_article_beside_a_long_sidebar_survives(self):
+        # On a video page the sidebar outweighs the article, so the wrapper
+        # holding both is link-dense. Dropping it returned nothing at all and
+        # the notifier fell back to the title.
+        headlines = "".join(
+            f"<li><a href='/{i}'>Lewis Hamilton issues strong denial as Max "
+            f"Verstappen gains momentum</a></li>"
+            for i in range(10)
+        )
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main><div class='wrapper'>"
+            "<article><p>Take a look at the new Madrid circuit, called the "
+            "Madring. The street circuit is 5.474 kilometres long and has "
+            "twenty corners.</p></article>"
+            f"<div class='sidebar'><ul>{headlines}</ul></div>"
+            "</div></main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "Madring" in result
+        assert "Verstappen" not in result
+
+    def test_a_link_inside_a_sentence_does_not_drop_the_sentence(self):
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main><p>The detector resolves credentials through "
+            "the standard AWS credential chain, and you also need "
+            "<a href='/x'>model access enabled</a> in the Amazon Bedrock "
+            "console for the model that you choose.</p></main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "standard AWS credential chain" in result
+        assert "model access enabled" in result
+
+    def test_wordpress_content_class_wins_over_the_rest_of_main(self):
+        # racefans.net runs WordPress, whose theme wraps the post body in
+        # .entry-content. Taking it leaves the comment section behind, which
+        # is prose and so survives the link-density pass.
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main><article>"
+            "<div class='entry-content'><p>Mercedes team principal Toto Wolff "
+            "has revealed details of his conversations with former race "
+            "director Michael Masi before the 2021 title decider, and said he "
+            "urged him to listen to the drivers rather than push a decision "
+            "through on his own.</p></div>"
+            "</article>"
+            "<div class='comments-area'><p>A reader writes: this is exactly "
+            "why Lewis Hamilton was robbed of an eighth title, and nobody at "
+            "the FIA wants to talk about it any more.</p></div>"
+            "</main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "Michael Masi" in result
+        assert "A reader writes" not in result
+
+    def test_an_empty_content_class_falls_back_to_main(self):
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main>"
+            "<div class='entry-content'></div>"
+            "<div><p>The article body is rendered outside the theme container "
+            "on this page, and it is the only text worth summarizing here.</p>"
+            "</div></main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "The article body is rendered outside" in result
+
+    def test_a_page_that_is_all_links_returns_none(self):
+        # push_notification falls back to the title on None, not on "", so an
+        # empty body would reach the model as an empty prompt.
+        mock_response = MagicMock()
+        headlines = "".join(
+            f"<li><a href='/{i}'>Lewis Hamilton issues strong denial as Max "
+            f"Verstappen gains momentum</a></li>"
+            for i in range(10)
+        )
+        mock_response.text = f"<html><body><main><ul>{headlines}</ul></main></body></html>"
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert result is None
+
+    def test_an_advert_paragraph_is_dropped(self):
+        # racefans.net repeats this line through the post, and ends it with a
+        # paragraph of related headlines. Both are paragraphs, and both are
+        # link text almost end to end.
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main><div class='entry-content'>"
+            "<p>Mercedes team principal Toto Wolff has revealed details of "
+            "his conversations with former race director Michael Masi before "
+            "the 2021 title decider in Abu Dhabi.</p>"
+            "<p><a href='/s'>Advert</a> | <a href='/s'>Become a RaceFans "
+            "supporter and go ad-free</a></p>"
+            "<p><a href='/a'>Formula 1 cuts grand prix distances for 2027</a> "
+            "<a href='/b'>Poll: Should F1 change its Virtual Safety Car "
+            "rules?</a></p>"
+            "</div></main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "Michael Masi" in result
+        assert "Become a RaceFans supporter" not in result
+        assert "grand prix distances" not in result
+
+    def test_a_short_wordpress_post_does_not_fall_back_to_the_comments(self):
+        # A photo post's body is short. Falling back to <main> for it would
+        # hand the model the comment section this container exists to skip.
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main>"
+            "<div class='entry-content'><p>Sainz keeps his old helmet.</p>"
+            "</div>"
+            "<div class='comments-area'><p>A reader writes: this is exactly "
+            "why Lewis Hamilton was robbed of an eighth title, and nobody at "
+            "the FIA wants to talk about it any more.</p></div>"
+            "</main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "Sainz keeps his old helmet" in result
+        assert "A reader writes" not in result
+
+    def test_the_article_element_wins_over_the_rest_of_main(self):
+        # motorsport.com ends its <main> with "More from ..." lists that print
+        # each headline twice, once as the link and once as plain text. That
+        # halves the link share and carries the list under the ratio, so the
+        # names of drivers the article never mentions survived. <article>
+        # holds the story itself, and is preferred where no WordPress
+        # container exists.
+        headline = (
+            "Why progress won't satisfy Red Bull until it can give Max "
+            "Verstappen a winning car"
+        )
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main>"
+            "<article><p>Isack Hadjar will return to Red Bull at the "
+            "Azerbaijan Grand Prix after missing the last three races with a "
+            "wrist injury, the team has confirmed.</p></article>"
+            "<div class='related'><h2>More from Red Bull Racing</h2>"
+            f"<a href='/a'>{headline}</a><span>{headline}</span>"
+            "</div></main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "wrist injury" in result
+        assert "Verstappen" not in result
+
+    def test_the_wordpress_container_beats_a_longer_article(self):
+        # On racefans.net <article> (4158 characters on the Masi post) wraps
+        # .entry-content (3423) along with the byline and the tag list, so
+        # the order of the selectors decides, not their length.
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main><article>"
+            "<p>Posted on 21st September 2026 by Keith Collantine in the "
+            "2021 F1 season, Formula 1, tagged Lewis Hamilton, Michael Masi "
+            "and Toto Wolff.</p>"
+            "<div class='entry-content'><p>Mercedes team principal Toto "
+            "Wolff has revealed details of his conversations with former "
+            "race director Michael Masi.</p></div>"
+            "</article></main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "Michael Masi" in result
+        assert "Keith Collantine" not in result
+
+    def test_the_longest_article_is_taken(self):
+        # Where a page holds more than one <article> the longest wins. Every
+        # page measured holds exactly one, which is the story, so this pins
+        # the rule rather than a behaviour observed in the wild: a site that
+        # puts a longer <article> beside its story would defeat it.
+        mock_response = MagicMock()
+        mock_response.text = (
+            "<html><body><main>"
+            "<article><p>Teaser: read our full report on the Azerbaijan "
+            "Grand Prix weekend.</p></article>"
+            "<article><p>Isack Hadjar will return to Red Bull at the "
+            "Azerbaijan Grand Prix after missing the last three races with a "
+            "wrist injury, the team has confirmed on Tuesday morning.</p>"
+            "</article></main></body></html>"
+        )
+        mock_scraper = MagicMock()
+        mock_scraper.get.return_value = mock_response
+        with patch("index.cloudscraper.create_scraper", return_value=mock_scraper):
+            result = index.get_blog_content("https://example.com")
+        assert "wrist injury" in result
+        assert "Teaser" not in result
+
     def test_http_error_returns_none(self):
         mock_scraper = MagicMock()
         mock_scraper.get.side_effect = Exception("Connection refused")

@@ -14,7 +14,7 @@ import boto3
 import cloudscraper
 import openai
 from botocore.exceptions import ClientError
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from strands import Agent
 from strands.models import BedrockModel
 from strands.models.openai_responses import OpenAIResponsesModel
@@ -122,11 +122,108 @@ def get_blog_content(url):
         main = soup.find("main")
         print(f"Parsed {url}: found_main={main is not None}")
 
-        return main.text if main else None
+        return (_article_text(main) or None) if main else None
 
     except Exception as e:
         print(f"Error accessing {url}: {e}")
         return None
+
+
+# A block this short is a byline or a caption, not a headline list, and the
+# ratio below says too little about it to act on.
+MIN_BLOCK_LENGTH = 40
+# Above this share of link text a block is a list of other articles rather
+# than prose: the sentences in an article are mostly not links.
+LINK_DENSE_RATIO = 0.6
+
+
+def _is_headline_list(element):
+    """Say whether an element is a list of other articles rather than prose."""
+
+    text = element.get_text(" ", strip=True)
+    if len(text) < MIN_BLOCK_LENGTH:
+        return False
+
+    link_text = sum(len(a.get_text(" ", strip=True)) for a in element.find_all("a"))
+    if link_text / len(text) <= LINK_DENSE_RATIO:
+        return False
+
+    # A wrapper holding a short article beside a long sidebar is link-dense
+    # too. It still carries paragraphs, so descend into it instead of taking
+    # the article with the sidebar. A paragraph is judged by the same ratio
+    # as anything else: on racefans.net the paragraphs over the threshold are
+    # "Advert | Become a supporter" and a run of related headlines, not prose.
+    return not any(
+        len(p.get_text(" ", strip=True)) >= MIN_BLOCK_LENGTH
+        for p in element.find_all("p")
+    )
+
+
+def _strip_link_lists(node):
+    """Remove the lists of other articles that sit inside the page body.
+
+    racingnews365 puts "Most read" and related-article blocks inside <main>,
+    so their driver names reached the model as if the article had named them.
+    A summary of an Antonelli article called him マックス・アントネッリ, taking the
+    first name from a Verstappen headline in that chrome; the same names also
+    keep absent drivers in the glossary that _filter_glossary_names trims.
+
+    Link density tells the two apart. Dropping everything but <p> would also
+    work on racingnews365, but it costs an AWS blog post a third of its text:
+    the headings and bullet lists there carry the explanation.
+    """
+
+    for child in list(node.children):
+        if not isinstance(child, Tag):
+            continue
+        if _is_headline_list(child):
+            child.decompose()
+        else:
+            _strip_link_lists(child)
+
+
+# WordPress wraps a post's body in this class, and racefans.net is built on
+# WordPress. Taking it skips the sidebar, the tag list and the comment
+# section in one step, rather than judging each of them by link density.
+# In order of how well each one pins down the article body. WordPress names
+# its container, and racefans.net is the WordPress site here; <article> is
+# the semantic element the other sites reach for, except AWS What's New,
+# which has neither and falls back to <main>.
+CONTENT_SELECTORS = (".entry-content", "article")
+
+
+def _article_root(main):
+    """Return the element that holds the article body.
+
+    A named container beats the link-density pass below, which only judges a
+    block by how it reads. motorsport.com shows why: its "More from ..."
+    lists print every headline twice, once as the link and once as plain
+    text, so the link share lands under the threshold and the list survives.
+    Its <article> leaves all of that outside.
+    """
+
+    # Where a selector matches more than once the longest match wins. Every
+    # page measured holds exactly one non-empty match, so that rule has not
+    # had to choose yet, and a site that puts a longer <article> beside its
+    # story would defeat it.
+    for selector in CONTENT_SELECTORS:
+        # A short post is still a post, so the test is emptiness and not a
+        # length: falling back to <main> would hand the model the comment
+        # section these containers exist to leave out.
+        candidates = [
+            element for element in main.select(selector) if element.get_text(" ", strip=True)
+        ]
+        if candidates:
+            return max(candidates, key=lambda element: len(element.get_text(" ", strip=True)))
+    return main
+
+
+def _article_text(main):
+    """Return the article body inside <main>, without the chrome around it."""
+
+    root = _article_root(main)
+    _strip_link_lists(root)
+    return root.get_text(" ", strip=True)
 
 
 def _fold_accents(text):
