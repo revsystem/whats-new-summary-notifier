@@ -189,7 +189,7 @@ GPT-6 Luna はこのどちらにも乗りません。`bedrock-mantle` は GPT-6 
 
 * スタックは `responses` のときにのみ `bedrock-mantle:CallWithBearerToken` と `bedrock-mantle:CreateInference` を付与します。両方が必要で、前者だけでは `AccessDeniedException` になります。
 * 推論モデルは記事あたりの所要時間が長いため、Responses 系の2つの mode では Lambda のタイムアウトを 180 秒から 600 秒に引き上げます。
-* `responses-runtime` では bedrock-mantle の権限付与は行いませんが、`/openai/v1` はモデルに加えてプロジェクトリソースに対しても認可します。スタックはこの mode のとき `project/*` に対しても `bedrock:InvokeModel` と `bedrock:InvokeModelWithResponseStream` を付与します。これが無いと HTTP 401 で `project/default` が名指しされます。
+* `responses-runtime` では bedrock-mantle の権限付与は行いませんが、名前空間を `bedrock` に替えた同じ形の権限が必要です。`bedrock:CallWithBearerToken` を `*` に、`bedrock:InvokeModel` と `bedrock:InvokeModelWithResponseStream` をモデル・`inference-profile/*`・`project/*` に付与します。いずれかが欠けると HTTP 401 で不足しているアクションが名指しされます。
 * GPT-5.6 Terra のような推論モデルは `temperature` と `top_p` を受け付けません。指定すると HTTP 400 `unsupported_parameter` になるため、この経路では `max_output_tokens` と推論の effort のみを渡します。
 
 元に戻す場合は、以前の `modelId` と `modelApiMode` の組み合わせに戻して `npx cdk deploy` を実行します。3 つの呼び出し経路がいずれも関数内に残っているため、コードの変更は不要です。

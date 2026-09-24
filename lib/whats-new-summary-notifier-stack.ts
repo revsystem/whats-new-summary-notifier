@@ -83,13 +83,20 @@ export class WhatsNewSummaryNotifierStack extends Stack {
               `arn:aws:bedrock:${modelRegion}:${accountId}:inference-profile/*`,
             ],
           }),
-          // The bedrock-runtime /openai/v1 path authorizes against the
-          // project resource, not only the model: without this the endpoint
-          // answers HTTP 401 naming bedrock:InvokeModel on project/default.
-          // Found in production on 2026-09-24; local tests missed it because
-          // the developer role carries the permission already.
+          // The bedrock-runtime /openai/v1 path mirrors the mantle path one
+          // namespace over: a bearer token call that cannot be resource-scoped,
+          // and an inference against the project. Both showed up as HTTP 401 in
+          // production on 2026-09-24, one deploy apart, because the developer
+          // role used for every local test carries them already. The shape
+          // follows the AWS managed policy AmazonBedrockLimitedAccess, which
+          // grants bedrock:CallWithBearerToken on "*" beside InvokeModel.
           ...(usesRuntimeResponses
             ? [
+                new PolicyStatement({
+                  actions: ['bedrock:CallWithBearerToken'],
+                  effect: Effect.ALLOW,
+                  resources: ['*'],
+                }),
                 new PolicyStatement({
                   actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
                   effect: Effect.ALLOW,
