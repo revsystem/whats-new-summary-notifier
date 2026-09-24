@@ -95,6 +95,8 @@ Bedrock Marketplace経由のサードパーティモデル(GPT-5.6 Terra等)の�
 | 2026-09-04 03:51 | Terra → GPT-5.6 Luna | `openai.gpt-5.6-luna` | `responses` | `OpenAI GPT-5.6 Luna (Amazon Bedrock Edition)` |
 | 2026-09-24 04:00 | Luna → GPT-6 Luna | `us.openai.gpt-6-luna` | `responses-runtime` | `OpenAI GPT-6 Luna (Amazon Bedrock Edition)`（推定、初日の課金で要確認） |
 
+切り替え当日は 04:00 から 07:39 UTC まで IAM 不足で全件 401 になり、推論は 1 件も成立していない。GPT-5.6 Luna の課金は 04:00 で止まり、GPT-6 Luna の課金は 07:39 から始まる。この 3 時間 39 分は両方ともゼロなので、日次の比較では 09-24 を除くか、この空白を織り込む。
+
 GPT-6 Luna の list price は GPT-5.6 Luna の半額 (regional standard で input $0.11/M 対 $0.22/M、output $0.55/M 対 $1.32/M)。1 投稿あたりの実費が半分になるとは限らないため、切り替え後に実測する。月をまたぐ集計では両方の SERVICE を入れる。
 
 ### クレジットの扱い
