@@ -73,7 +73,7 @@ CDK 側のキー名と Lambda 側のキー名は必ず一致させること。�
 
 ## Bedrock パラメータ
 
-ライブラリ: `strands-agents`。モデルの生成は `lambda/notify-to-app/index.py` の `build_model()` に集約され、`MODEL_API_MODE` で 2 経路に分岐する。
+ライブラリ: `strands-agents`。モデルの生成は `lambda/notify-to-app/index.py` の `build_model()` に集約され、`MODEL_API_MODE` で 3 経路に分岐する。
 
 ```python
 # responses-runtime: bedrock-runtime の Responses API（現行の本番設定）
