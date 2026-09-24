@@ -148,19 +148,22 @@ You can change the settings by modifying the values under the `context` section 
 ## Common Settings
 * `modelRegion`: The region to use Amazon Bedrock. Enter the region code of the region you want to use from among the regions where Amazon Bedrock is available.
 * `modelId`: The model ID of the base model to be used with Amazon Bedrock. Refer to the documentation for the model ID of each model.
-* `modelApiMode`: How the model is invoked. Set `converse` for a `modelId` served by the Converse API on the `bedrock-runtime` endpoint, or `responses` for one served by the Responses API on the `bedrock-mantle` endpoint. Defaults to `converse` when omitted. `modelId` and `modelApiMode` must agree, otherwise the Lambda function raises an error on startup.
+* `modelApiMode`: How the model is invoked. Set `converse` for a `modelId` served by the Converse API on the `bedrock-runtime` endpoint, `responses` for one served by the Responses API on the `bedrock-mantle` endpoint, or `responses-runtime` for one served by the Responses API that `bedrock-runtime` exposes under `/openai/v1`. Defaults to `converse` when omitted. `modelId` and `modelApiMode` must agree, otherwise the Lambda function raises an error on startup.
 
 ### Switching the model
 
-Each `modelId` below is reachable through only one of the two APIs, so whenever you change `modelId`, check that `modelApiMode` still matches it. Moving between two models that share a mode needs only the `modelId` edit.
+Each `modelId` below is reachable through only one of the three paths, so whenever you change `modelId`, check that `modelApiMode` still matches it. Moving between two models that share a mode needs only the `modelId` edit.
 
 | Model | `modelId` | `modelApiMode` |
 | --- | --- | --- |
 | Amazon Nova Pro | `us.amazon.nova-pro-v1:0` | `converse` |
 | OpenAI GPT-5.6 Terra | `openai.gpt-5.6-terra` | `responses` |
 | OpenAI GPT-5.6 Luna | `openai.gpt-5.6-luna` | `responses` |
+| OpenAI GPT-6 Luna | `us.openai.gpt-6-luna` | `responses-runtime` |
 
-The GPT-5.6 models are also served by the Converse API on `bedrock-runtime`, but only under a cross-Region inference profile ID (such as `us.openai.gpt-5.6-luna`) and only with `bedrock:InvokeModel` on `project/default`, which this stack does not grant. The bare model IDs above therefore go through `responses`.
+The GPT-5.6 models are also served by the Converse API on `bedrock-runtime`, but only under a cross-Region inference profile ID (such as `us.openai.gpt-5.6-luna`) and only with `bedrock:InvokeModel` on `project/default`, which this stack does not grant. Their bare model IDs therefore go through `responses`.
+
+GPT-6 Luna is on neither of those paths. `bedrock-mantle` serves `openai.gpt-6-astra` but no other GPT-6 model, and the bare `openai.gpt-6-luna` has no on-demand throughput, so it is called on `bedrock-runtime` under its `us.` inference profile. Use the `us.` prefix and not `global.`: the stack strips `us.` / `eu.` / `ap.` to build the IAM ARN and leaves `global.` in place, which produces an ARN that matches nothing.
 
 1. Edit the affected values in the `context` section of [cdk.json](cdk.json).
 2. Deploy with `npx cdk deploy`. The CDK app rejects an unknown `modelApiMode` at synth time, and the Lambda function rejects a mismatched pair at startup, so a half-finished edit fails fast rather than reaching production.

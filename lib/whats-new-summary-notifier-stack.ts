@@ -33,13 +33,22 @@ export class WhatsNewSummaryNotifierStack extends Stack {
     // prefix. Strip it to obtain the underlying foundation model ID for IAM policy ARNs.
     const baseModelId = modelId.replace(/^(us|eu|ap)\./, '');
 
-    // "converse" calls bedrock-runtime; "responses" calls the bedrock-mantle
-    // endpoint, which some models (e.g. GPT-5.6 Terra) require exclusively.
+    // "converse" calls the Converse API on bedrock-runtime, "responses" the
+    // Responses API on bedrock-mantle, which some models (e.g. GPT-5.6 Terra)
+    // require exclusively, and "responses-runtime" the Responses API that
+    // bedrock-runtime serves under /openai/v1, which is where GPT-6 Luna is.
     const modelApiMode = this.node.tryGetContext('modelApiMode') ?? 'converse';
-    if (modelApiMode !== 'converse' && modelApiMode !== 'responses') {
-      throw new Error(`modelApiMode must be "converse" or "responses", got: ${modelApiMode}`);
+    if (!['converse', 'responses', 'responses-runtime'].includes(modelApiMode)) {
+      throw new Error(
+        `modelApiMode must be "converse", "responses" or "responses-runtime", got: ${modelApiMode}`
+      );
     }
-    const usesResponsesApi = modelApiMode === 'responses';
+    // Only the mantle path needs the bedrock-mantle grants below. The
+    // bedrock-runtime Responses path signs its bearer token locally and is
+    // covered by the bedrock:InvokeModel statement.
+    const usesMantle = modelApiMode === 'responses';
+    // Both Responses paths run a reasoning model and take longer than Converse.
+    const usesResponsesApi = modelApiMode.startsWith('responses');
 
     const notifiers: [] = this.node.tryGetContext('notifiers');
     const summarizers: [] = this.node.tryGetContext('summarizers');
@@ -72,7 +81,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
           // Resource scoping follows the AWS managed policy
           // AmazonBedrockMantleInferenceAccess: CallWithBearerToken is not
           // resource-scopable and must use "*", CreateInference targets projects.
-          ...(usesResponsesApi
+          ...(usesMantle
             ? [
                 new PolicyStatement({
                   actions: ['bedrock-mantle:CallWithBearerToken'],

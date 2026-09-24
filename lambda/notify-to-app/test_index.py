@@ -518,6 +518,81 @@ class TestValidateModelConfig:
     def test_converse_model_accepts_converse_mode(self):
         index.validate_model_config("us.amazon.nova-pro-v1:0", "converse")
 
+    def test_runtime_responses_model_accepts_its_own_mode(self):
+        index.validate_model_config("us.openai.gpt-6-luna", "responses-runtime")
+
+    def test_runtime_responses_model_rejects_the_mantle_mode(self):
+        with pytest.raises(ValueError, match="served by the Responses API on bedrock-runtime"):
+            index.validate_model_config("us.openai.gpt-6-luna", "responses")
+
+    def test_runtime_responses_model_rejects_converse_mode(self):
+        with pytest.raises(ValueError, match="served by the Responses API on bedrock-runtime"):
+            index.validate_model_config("us.openai.gpt-6-luna", "converse")
+
+    def test_mantle_model_rejects_the_runtime_mode(self):
+        with pytest.raises(ValueError, match="only available through the Responses API"):
+            index.validate_model_config("openai.gpt-5.6-luna", "responses-runtime")
+
+    def test_converse_model_rejects_the_runtime_mode(self):
+        with pytest.raises(ValueError, match="not registered as a bedrock-runtime"):
+            index.validate_model_config("us.amazon.nova-pro-v1:0", "responses-runtime")
+
+
+class TestBuildModel:
+    def test_runtime_responses_points_at_bedrock_runtime(self, monkeypatch):
+        # The bearer token is minted from the execution role's own credentials,
+        # so nothing but the region reaches provide_token.
+        monkeypatch.setattr(index, "MODEL_API_MODE", "responses-runtime")
+        monkeypatch.setattr(index, "MODEL_ID", "us.openai.gpt-6-luna")
+        monkeypatch.setattr(index, "MODEL_REGION", "us-west-2")
+        monkeypatch.setattr(index, "provide_token", lambda region: f"token-for-{region}")
+        captured = {}
+
+        def fake_model(**kwargs):
+            captured.update(kwargs)
+            return "model"
+
+        monkeypatch.setattr(index, "OpenAIResponsesModel", fake_model)
+        assert index.build_model(4096) == "model"
+        assert captured["model_id"] == "us.openai.gpt-6-luna"
+        assert captured["client_args"] == {
+            "base_url": "https://bedrock-runtime.us-west-2.amazonaws.com/openai/v1",
+            "api_key": "token-for-us-west-2",
+        }
+        assert captured["params"]["max_output_tokens"] == 4096
+        assert "bedrock_mantle_config" not in captured
+
+    def test_mantle_responses_still_uses_the_mantle_endpoint(self, monkeypatch):
+        monkeypatch.setattr(index, "MODEL_API_MODE", "responses")
+        monkeypatch.setattr(index, "MODEL_ID", "openai.gpt-5.6-luna")
+        monkeypatch.setattr(index, "MODEL_REGION", "us-west-2")
+        captured = {}
+
+        def fake_model(**kwargs):
+            captured.update(kwargs)
+            return "model"
+
+        monkeypatch.setattr(index, "OpenAIResponsesModel", fake_model)
+        index.build_model(4096)
+        assert captured["bedrock_mantle_config"] == {"region": "us-west-2"}
+        assert "client_args" not in captured
+
+    def test_converse_keeps_its_sampling_parameters(self, monkeypatch):
+        # GPT-6 rejects temperature and top_p, but the Converse path serves
+        # models that need them, so the branch keeps sending them.
+        monkeypatch.setattr(index, "MODEL_API_MODE", "converse")
+        monkeypatch.setattr(index, "MODEL_ID", "us.amazon.nova-pro-v1:0")
+        captured = {}
+
+        def fake_model(**kwargs):
+            captured.update(kwargs)
+            return "model"
+
+        monkeypatch.setattr(index, "BedrockModel", fake_model)
+        index.build_model(4096)
+        assert captured["temperature"] == 0.1
+        assert captured["streaming"] is False
+
 
 class TestFilterGlossaryNames:
     PROMPT = (

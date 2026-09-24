@@ -164,19 +164,22 @@ npx cdk destroy --profile your-profile-name
 ## 共通設定
 * `modelRegion`: Amazon Bedrock を利用するリージョン。Amazon Bedrock を利用可能なリージョンの中から、利用したいリージョンのリージョンコードを入力してください。
 * `modelId`: Amazon Bedrock で利用する基盤モデルの model ID。各モデルの model ID はドキュメントを参照ください。
-* `modelApiMode`: モデルの呼び出し方式。`bedrock-runtime` エンドポイントの Converse API で呼び出す `modelId` は `converse`、`bedrock-mantle` エンドポイントの Responses API で呼び出す `modelId` は `responses` を指定します。省略時は `converse` として扱われます。`modelId` と `modelApiMode` が対応していない場合、Lambda 関数は起動時にエラーになります。
+* `modelApiMode`: モデルの呼び出し方式。`bedrock-runtime` エンドポイントの Converse API で呼び出す `modelId` は `converse`、`bedrock-mantle` エンドポイントの Responses API で呼び出す `modelId` は `responses`、`bedrock-runtime` が `/openai/v1` で提供する Responses API で呼び出す `modelId` は `responses-runtime` を指定します。省略時は `converse` として扱われます。`modelId` と `modelApiMode` が対応していない場合、Lambda 関数は起動時にエラーになります。
 
 ### モデルの切り替え手順
 
-下表の `modelId` はいずれも一方の API でしか呼び出せないため、`modelId` を変更したら対応する `modelApiMode` も合わせて確認します（同じ `modelApiMode` の別モデルへ移る場合は `modelId` の変更だけで済みます）。
+下表の `modelId` はいずれか 1 つの経路でしか呼び出せないため、`modelId` を変更したら対応する `modelApiMode` も合わせて確認します（同じ `modelApiMode` の別モデルへ移る場合は `modelId` の変更だけで済みます）。
 
 | モデル | `modelId` | `modelApiMode` |
 | --- | --- | --- |
 | Amazon Nova Pro | `us.amazon.nova-pro-v1:0` | `converse` |
 | OpenAI GPT-5.6 Terra | `openai.gpt-5.6-terra` | `responses` |
 | OpenAI GPT-5.6 Luna | `openai.gpt-5.6-luna` | `responses` |
+| OpenAI GPT-6 Luna | `us.openai.gpt-6-luna` | `responses-runtime` |
 
-GPT-5.6 系のモデルは `bedrock-runtime` の Converse API でも提供されていますが、その場合はクロスリージョン推論プロファイル ID（`us.openai.gpt-5.6-luna` など）の指定が必須で、さらに `project/default` に対する `bedrock:InvokeModel` 権限が必要になります。本スタックはこの権限を付与しないため、上表のとおり素の model ID を `responses` で呼び出します。
+GPT-5.6 系のモデルは `bedrock-runtime` の Converse API でも提供されていますが、その場合はクロスリージョン推論プロファイル ID（`us.openai.gpt-5.6-luna` など）の指定が必須で、さらに `project/default` に対する `bedrock:InvokeModel` 権限が必要になります。本スタックはこの権限を付与しないため、素の model ID を `responses` で呼び出します。
+
+GPT-6 Luna はこのどちらにも乗りません。`bedrock-mantle` は GPT-6 のうち `openai.gpt-6-astra` しか提供しておらず、素の `openai.gpt-6-luna` はオンデマンド非対応のため、`bedrock-runtime` の `us.` 推論プロファイル経由で呼び出します。`global.` ではなく `us.` を使ってください。スタックは IAM の ARN を作るときに `us.` / `eu.` / `ap.` だけを除去するため、`global.` 付きの ID ではどのリソースにも一致しない ARN になります。
 
 1. [cdk.json](cdk.json) の `context` 内で該当する値を変更します。
 2. `npx cdk deploy` でデプロイします。不正な `modelApiMode` は synth 時点で、`modelId` との不一致は Lambda 起動時に検出されるため、片方だけ変更した状態が本番に到達することはありません。
