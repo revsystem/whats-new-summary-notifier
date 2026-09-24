@@ -47,6 +47,7 @@ export class WhatsNewSummaryNotifierStack extends Stack {
     // bedrock-runtime Responses path signs its bearer token locally and is
     // covered by the bedrock:InvokeModel statement.
     const usesMantle = modelApiMode === 'responses';
+    const usesRuntimeResponses = modelApiMode === 'responses-runtime';
     // Both Responses paths run a reasoning model and take longer than Converse.
     const usesResponsesApi = modelApiMode.startsWith('responses');
 
@@ -82,6 +83,20 @@ export class WhatsNewSummaryNotifierStack extends Stack {
               `arn:aws:bedrock:${modelRegion}:${accountId}:inference-profile/*`,
             ],
           }),
+          // The bedrock-runtime /openai/v1 path authorizes against the
+          // project resource, not only the model: without this the endpoint
+          // answers HTTP 401 naming bedrock:InvokeModel on project/default.
+          // Found in production on 2026-09-24; local tests missed it because
+          // the developer role carries the permission already.
+          ...(usesRuntimeResponses
+            ? [
+                new PolicyStatement({
+                  actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+                  effect: Effect.ALLOW,
+                  resources: [`arn:aws:bedrock:${modelRegion}:${accountId}:project/*`],
+                }),
+              ]
+            : []),
           // The bedrock-mantle path mints a short-lived bearer token from the
           // execution role's credentials, then creates an inference against the
           // project. Both actions are required; CallWithBearerToken alone fails.

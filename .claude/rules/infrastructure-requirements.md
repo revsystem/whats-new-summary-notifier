@@ -36,7 +36,9 @@ GPT-6 系が `responses-runtime` なのは、`bedrock-mantle` が GPT-6 のう�
 
 GPT-6 Luna は素の `openai.gpt-6-luna` ではオンデマンド非対応 (`Invocation of model ID ... with on-demand throughput isn't supported`) で、プロファイル ID の指定が必須。
 
-`responses` 時はスタックが `bedrock-mantle:CallWithBearerToken` と `bedrock-mantle:CreateInference` を追加で付与する。`responses-runtime` はこの付与を行わない。ベアラートークンは SigV4 の presigned URL をローカルで base64 化したもので API 呼び出しを伴わないため、必要な権限は `bedrock:InvokeModel` と `bedrock:InvokeModelWithResponseStream` に収まる。後者を含めるのは Strands の Responses クライアントが毎リクエストに `stream: true` を付けるためで、`/openai/v1` がどちらのアクションで認可するかは文書化されていない。タイムアウトは `responses` と `responses-runtime` のどちらでも 600 秒へ引き上げる。切り替え手順の詳細は `DEPLOY_ja.md` の「モデルの切り替え手順」を参照する。
+`responses` 時はスタックが `bedrock-mantle:CallWithBearerToken` と `bedrock-mantle:CreateInference` を追加で付与する。`responses-runtime` ではこれらの代わりに `bedrock:InvokeModel` / `bedrock:InvokeModelWithResponseStream` を `project/*` に対しても付与する。
+
+`/openai/v1` はモデル ARN だけでなくプロジェクトリソースに対して認可する。`project/*` が無いと HTTP 401 で `is not authorized to perform: bedrock:InvokeModel on resource: arn:aws:bedrock:<region>:<account>:project/default` が返る。2026-09-24 の本番切り替えで発覚した。開発者ロールはこの権限を既に持つため、ローカルの疎通確認では露見しない。ベアラートークン自体は SigV4 の presigned URL をローカルで base64 化したもので API 呼び出しを伴わない。ストリーミングのアクションを含めるのは Strands の Responses クライアントが毎リクエストに `stream: true` を付けるためで、`/openai/v1` がどちらのアクションで認可するかは文書化されていない。タイムアウトは `responses` と `responses-runtime` のどちらでも 600 秒へ引き上げる。切り替え手順の詳細は `DEPLOY_ja.md` の「モデルの切り替え手順」を参照する。
 
 新しいモデルは Bedrock のモデル契約を承諾しないと 404 になる。状態は `aws bedrock get-foundation-model-availability --model-id <id> --region us-west-2 --profile production` の `agreementAvailability` で確認し、`NOT_AVAILABLE` なら `list-foundation-model-agreement-offers` の `offerToken` を `create-foundation-model-agreement` に渡す。承諾後は数分 `PENDING` が続く。
 

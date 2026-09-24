@@ -173,7 +173,7 @@ Notes when moving to a `responses` or `responses-runtime` model:
 
 * The stack grants `bedrock-mantle:CallWithBearerToken` and `bedrock-mantle:CreateInference` only in `responses` mode. Both are required; granting only the former returns `AccessDeniedException`.
 * The Lambda timeout is raised from 180 to 600 seconds in both Responses modes, because reasoning models spend considerably longer per article.
-* `responses-runtime` needs no bedrock-mantle grant. Its bearer token is a SigV4 presigned URL built locally, so `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` on the model cover it.
+* `responses-runtime` needs no bedrock-mantle grant, but the `/openai/v1` endpoint authorizes against the project resource as well as the model. The stack grants `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` on `project/*` in that mode; without it the endpoint answers HTTP 401 naming `project/default`.
 * Reasoning models such as GPT-5.6 Terra reject `temperature` and `top_p`. Sending either returns HTTP 400 `unsupported_parameter`, so only `max_output_tokens` and the reasoning effort are passed on that path.
 
 To roll back, restore the previous `modelId` and `modelApiMode` pair and run `npx cdk deploy` again. No code change is needed, because all three call paths remain in the function.
