@@ -185,13 +185,14 @@ GPT-6 Luna はこのどちらにも乗りません。`bedrock-mantle` は GPT-6 
 2. `npx cdk deploy` でデプロイします。不正な `modelApiMode` は synth 時点で、`modelId` との不一致は Lambda 起動時に検出されるため、片方だけ変更した状態が本番に到達することはありません。
 3. `NotifyNewEntry` の CloudWatch Logs で最初の数件を確認します。
 
-`responses` のモデルへ切り替える場合の注意点は次のとおりです。
+`responses` または `responses-runtime` のモデルへ切り替える場合の注意点は次のとおりです。
 
 * スタックは `responses` のときにのみ `bedrock-mantle:CallWithBearerToken` と `bedrock-mantle:CreateInference` を付与します。両方が必要で、前者だけでは `AccessDeniedException` になります。
-* 推論モデルは記事あたりの所要時間が長いため、`responses` のときは Lambda のタイムアウトを 180 秒から 600 秒に引き上げます。
+* 推論モデルは記事あたりの所要時間が長いため、Responses 系の2つの mode では Lambda のタイムアウトを 180 秒から 600 秒に引き上げます。
+* `responses-runtime` では bedrock-mantle の権限付与は行いません。ベアラートークンは SigV4 の presigned URL をローカルで生成したものなので、モデルに対する `bedrock:InvokeModel` と `bedrock:InvokeModelWithResponseStream` で足ります。
 * GPT-5.6 Terra のような推論モデルは `temperature` と `top_p` を受け付けません。指定すると HTTP 400 `unsupported_parameter` になるため、この経路では `max_output_tokens` と推論の effort のみを渡します。
 
-元に戻す場合は、以前の `modelId` と `modelApiMode` の組み合わせに戻して `npx cdk deploy` を実行します。両方の呼び出し経路が関数内に残っているため、コードの変更は不要です。
+元に戻す場合は、以前の `modelId` と `modelApiMode` の組み合わせに戻して `npx cdk deploy` を実行します。3 つの呼び出し経路がいずれも関数内に残っているため、コードの変更は不要です。
 
 ## summarizers
 生成 AI に入力する要約用プロンプトの設定を行います。

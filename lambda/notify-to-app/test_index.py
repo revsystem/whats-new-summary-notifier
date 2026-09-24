@@ -533,6 +533,12 @@ class TestValidateModelConfig:
         with pytest.raises(ValueError, match="only available through the Responses API"):
             index.validate_model_config("openai.gpt-5.6-luna", "responses-runtime")
 
+    def test_the_global_profile_is_not_registered(self):
+        # It answers, but the stack strips only us. / eu. / ap. when building
+        # the IAM ARN, so a global. ID would be granted nothing.
+        with pytest.raises(ValueError, match="not registered as a bedrock-runtime"):
+            index.validate_model_config("global.openai.gpt-6-luna", "responses-runtime")
+
     def test_converse_model_rejects_the_runtime_mode(self):
         with pytest.raises(ValueError, match="not registered as a bedrock-runtime"):
             index.validate_model_config("us.amazon.nova-pro-v1:0", "responses-runtime")

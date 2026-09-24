@@ -169,13 +169,14 @@ GPT-6 Luna is on neither of those paths. `bedrock-mantle` serves `openai.gpt-6-a
 2. Deploy with `npx cdk deploy`. The CDK app rejects an unknown `modelApiMode` at synth time, and the Lambda function rejects a mismatched pair at startup, so a half-finished edit fails fast rather than reaching production.
 3. Check CloudWatch Logs for the first few invocations of `NotifyNewEntry`.
 
-Notes when moving to a `responses` model:
+Notes when moving to a `responses` or `responses-runtime` model:
 
 * The stack grants `bedrock-mantle:CallWithBearerToken` and `bedrock-mantle:CreateInference` only in `responses` mode. Both are required; granting only the former returns `AccessDeniedException`.
-* The Lambda timeout is raised from 180 to 600 seconds in `responses` mode, because reasoning models spend considerably longer per article.
+* The Lambda timeout is raised from 180 to 600 seconds in both Responses modes, because reasoning models spend considerably longer per article.
+* `responses-runtime` needs no bedrock-mantle grant. Its bearer token is a SigV4 presigned URL built locally, so `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream` on the model cover it.
 * Reasoning models such as GPT-5.6 Terra reject `temperature` and `top_p`. Sending either returns HTTP 400 `unsupported_parameter`, so only `max_output_tokens` and the reasoning effort are passed on that path.
 
-To roll back, restore the previous `modelId` and `modelApiMode` pair and run `npx cdk deploy` again. No code change is needed, because both call paths remain in the function.
+To roll back, restore the previous `modelId` and `modelApiMode` pair and run `npx cdk deploy` again. No code change is needed, because all three call paths remain in the function.
 
 ## summarizers
 Configure the prompt for summarizing the input to the generative AI.

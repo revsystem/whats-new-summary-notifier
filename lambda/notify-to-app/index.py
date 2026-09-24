@@ -43,9 +43,9 @@ RESPONSES_ONLY_MODEL_IDS = frozenset({"openai.gpt-5.6-terra", "openai.gpt-5.6-lu
 # bedrock-mantle. bedrock-mantle lists no GPT-6 model but gpt-6-astra, so
 # gpt-6-luna is reached through bedrock-runtime's /openai/v1 instead. Its bare
 # ID has no on-demand throughput, so the ID is the inference profile.
-RUNTIME_RESPONSES_MODEL_IDS = frozenset(
-    {"us.openai.gpt-6-luna", "global.openai.gpt-6-luna"}
-)
+# global.openai.gpt-6-luna answers too, but the stack strips only us. / eu. /
+# ap. when it builds the IAM ARN, so a global. ID would be granted nothing.
+RUNTIME_RESPONSES_MODEL_IDS = frozenset({"us.openai.gpt-6-luna"})
 
 # The bedrock-runtime Responses endpoint authenticates with a bearer token
 # minted from the caller's own credentials, the same token the AWS_BEARER_TOKEN
@@ -97,7 +97,7 @@ def validate_model_config(model_id, model_api_mode):
         )
     raise ValueError(
         f"Model {model_id!r} is not registered as a bedrock-runtime "
-        f"Responses model; set MODEL_API_MODE=converse or responses "
+        f"Responses model; set MODEL_API_MODE=converse "
         f"(got {model_api_mode!r})"
     )
 
@@ -111,8 +111,8 @@ def build_model(max_tokens):
     if MODEL_API_MODE == "responses-runtime":
         # Same API as the mantle path below, reached on bedrock-runtime and
         # authenticated with a bearer token minted per invocation. The token
-        # outlives a single Lambda invocation, and build_model runs once per
-        # article, so there is nothing to refresh mid-request.
+        # lasts 12 hours against this function's 600 second timeout, and
+        # build_model runs once per article, so it cannot expire mid-request.
         return OpenAIResponsesModel(
             model_id=MODEL_ID,
             client_args={
@@ -620,9 +620,13 @@ FINAL CHECK before you output: When output language is Japanese, scan your <summ
         else:
             raise error
     except openai.APIError as error:
-        # The Responses path surfaces failures as openai SDK exceptions rather
-        # than botocore ClientError.
-        print(f"Responses API (bedrock-mantle) error: {error}")
+        # Both Responses paths surface failures as openai SDK exceptions
+        # rather than botocore ClientError, so the log names the endpoint to
+        # keep the two apart.
+        endpoint = (
+            "bedrock-runtime" if MODEL_API_MODE == "responses-runtime" else "bedrock-mantle"
+        )
+        print(f"Responses API ({endpoint}) error: {error}")
         raise
 
     return summary, twitter, threads, bluesky

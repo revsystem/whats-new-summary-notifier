@@ -67,10 +67,13 @@ export class WhatsNewSummaryNotifierStack extends Stack {
           }),
           new PolicyStatement({
             // The Responses client sets stream: true on every request, so the
-            // bedrock-runtime path needs the streaming action as well as
-            // InvokeModel. Which of the two the /openai/v1 endpoint authorizes
-            // against is not documented, and both are scoped to the same model.
-            actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+            // Responses paths need the streaming action as well as InvokeModel.
+            // Which of the two the /openai/v1 endpoint authorizes against is not
+            // documented, and both are scoped to the same model. Converse runs
+            // with streaming: false and does not get it.
+            actions: usesResponsesApi
+              ? ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream']
+              : ['bedrock:InvokeModel'],
             effect: Effect.ALLOW,
             resources: [
               // Allow cross-region access to the underlying foundation model.
