@@ -66,7 +66,11 @@ export class WhatsNewSummaryNotifierStack extends Stack {
             resources: [`arn:aws:logs:${region}:${accountId}:log-group:*`],
           }),
           new PolicyStatement({
-            actions: ['bedrock:InvokeModel'],
+            // The Responses client sets stream: true on every request, so the
+            // bedrock-runtime path needs the streaming action as well as
+            // InvokeModel. Which of the two the /openai/v1 endpoint authorizes
+            // against is not documented, and both are scoped to the same model.
+            actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
             effect: Effect.ALLOW,
             resources: [
               // Allow cross-region access to the underlying foundation model.
