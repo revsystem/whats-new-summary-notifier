@@ -13,6 +13,7 @@ import urllib.request
 import boto3
 import cloudscraper
 import openai
+from aws_bedrock_token_generator import provide_token
 from botocore.exceptions import ClientError
 from bs4 import BeautifulSoup, Tag
 from strands import Agent
@@ -21,9 +22,10 @@ from strands.models.openai_responses import OpenAIResponsesModel
 
 MODEL_ID = os.environ["MODEL_ID"]
 MODEL_REGION = os.environ["MODEL_REGION"]
-# "converse" routes through bedrock-runtime; "responses" routes through the
-# bedrock-mantle endpoint. Defaults to converse so existing deployments that
-# predate this variable keep working unchanged.
+# "converse" calls the Converse API on bedrock-runtime, "responses" the
+# Responses API on bedrock-mantle, and "responses-runtime" the Responses API
+# that bedrock-runtime serves under /openai/v1. Defaults to converse so
+# existing deployments that predate this variable keep working unchanged.
 MODEL_API_MODE = os.environ.get("MODEL_API_MODE", "converse")
 NOTIFIERS = json.loads(os.environ["NOTIFIERS"])
 SUMMARIZERS = json.loads(os.environ["SUMMARIZERS"])
@@ -37,28 +39,67 @@ ssm = boto3.client("ssm")
 # Add new Responses-only model IDs here.
 RESPONSES_ONLY_MODEL_IDS = frozenset({"openai.gpt-5.6-terra", "openai.gpt-5.6-luna"})
 
+# Model IDs served by the Responses API on bedrock-runtime rather than on
+# bedrock-mantle. bedrock-mantle lists no GPT-6 model but gpt-6-astra, so
+# gpt-6-luna is reached through bedrock-runtime's /openai/v1 instead. Its bare
+# ID has no on-demand throughput, so the ID is the inference profile.
+# global.openai.gpt-6-luna answers too, but the stack strips only us. / eu. /
+# ap. when it builds the IAM ARN, so a global. ID would be granted nothing.
+RUNTIME_RESPONSES_MODEL_IDS = frozenset({"us.openai.gpt-6-luna"})
+
+# The bedrock-runtime Responses endpoint authenticates with a bearer token
+# minted from the caller's own credentials, the same token the AWS_BEARER_TOKEN
+# _BEDROCK variable carries. It is signed locally and needs no extra IAM.
+RUNTIME_RESPONSES_BASE_URL = "https://bedrock-runtime.{region}.amazonaws.com/openai/v1"
+
 # Printed before every swallowed exception. The CDK stack turns this string into
 # a CloudWatch metric, so the two must stay in step.
 UNHANDLED_EXCEPTION_MARKER = "NOTIFY_TO_APP_UNHANDLED_EXCEPTION"
 
 
 def validate_model_config(model_id, model_api_mode):
-    """Fail fast when the model ID and the API mode do not match."""
+    """Fail fast when the model ID and the API mode do not match.
 
-    if model_api_mode not in ("converse", "responses"):
+    Each model ID is served by exactly one of the three paths, so the mode is
+    derivable from the ID. It stays a separate setting rather than being
+    inferred, so that a model this file does not know about is rejected at
+    startup instead of being sent down whichever path looks plausible.
+    """
+
+    if model_api_mode not in ("converse", "responses", "responses-runtime"):
         raise ValueError(f"Unsupported MODEL_API_MODE: {model_api_mode!r}")
 
-    is_responses_only = model_id in RESPONSES_ONLY_MODEL_IDS
-    if is_responses_only and model_api_mode != "responses":
+    if model_id in RESPONSES_ONLY_MODEL_IDS:
+        expected = "responses"
+    elif model_id in RUNTIME_RESPONSES_MODEL_IDS:
+        expected = "responses-runtime"
+    else:
+        expected = "converse"
+
+    if model_api_mode == expected:
+        return
+
+    if expected == "responses":
         raise ValueError(
             f"Model {model_id!r} is only available through the Responses API; "
             f"set MODEL_API_MODE=responses (got {model_api_mode!r})"
         )
-    if not is_responses_only and model_api_mode == "responses":
+    if expected == "responses-runtime":
+        raise ValueError(
+            f"Model {model_id!r} is served by the Responses API on "
+            f"bedrock-runtime; set MODEL_API_MODE=responses-runtime "
+            f"(got {model_api_mode!r})"
+        )
+    if model_api_mode == "responses":
         raise ValueError(
             f"Model {model_id!r} is not registered as a Responses-only model; "
             f"set MODEL_API_MODE=converse (got {model_api_mode!r})"
         )
+    raise ValueError(
+        f"Model {model_id!r} is not registered as a bedrock-runtime "
+        f"Responses model; set MODEL_API_MODE=converse "
+        f"(got {model_api_mode!r})"
+    )
 
 
 validate_model_config(MODEL_ID, MODEL_API_MODE)
@@ -66,6 +107,23 @@ validate_model_config(MODEL_ID, MODEL_API_MODE)
 
 def build_model(max_tokens):
     """Build the Strands model for the configured API mode."""
+
+    if MODEL_API_MODE == "responses-runtime":
+        # Same API as the mantle path below, reached on bedrock-runtime and
+        # authenticated with a bearer token minted per invocation. The token
+        # lasts 12 hours against this function's 600 second timeout, and
+        # build_model runs once per article, so it cannot expire mid-request.
+        return OpenAIResponsesModel(
+            model_id=MODEL_ID,
+            client_args={
+                "base_url": RUNTIME_RESPONSES_BASE_URL.format(region=MODEL_REGION),
+                "api_key": provide_token(region=MODEL_REGION),
+            },
+            params={
+                "max_output_tokens": max_tokens,
+                "reasoning": {"effort": "medium"},
+            },
+        )
 
     if MODEL_API_MODE == "responses":
         # This path passes neither top_p nor temperature: reasoning models
@@ -562,9 +620,13 @@ FINAL CHECK before you output: When output language is Japanese, scan your <summ
         else:
             raise error
     except openai.APIError as error:
-        # The Responses path surfaces failures as openai SDK exceptions rather
-        # than botocore ClientError.
-        print(f"Responses API (bedrock-mantle) error: {error}")
+        # Both Responses paths surface failures as openai SDK exceptions
+        # rather than botocore ClientError, so the log names the endpoint to
+        # keep the two apart.
+        endpoint = (
+            "bedrock-runtime" if MODEL_API_MODE == "responses-runtime" else "bedrock-mantle"
+        )
+        print(f"Responses API ({endpoint}) error: {error}")
         raise
 
     return summary, twitter, threads, bluesky

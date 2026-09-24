@@ -73,10 +73,20 @@ CDK 側のキー名と Lambda 側のキー名は必ず一致させること。�
 
 ## Bedrock パラメータ
 
-ライブラリ: `strands-agents`。モデルの生成は `lambda/notify-to-app/index.py` の `build_model()` に集約され、`MODEL_API_MODE` で 2 経路に分岐する。
+ライブラリ: `strands-agents`。モデルの生成は `lambda/notify-to-app/index.py` の `build_model()` に集約され、`MODEL_API_MODE` で 3 経路に分岐する。
 
 ```python
-# responses: bedrock-mantle の Responses API（現行の本番設定）
+# responses-runtime: bedrock-runtime の Responses API（現行の本番設定）
+OpenAIResponsesModel(
+    model_id=MODEL_ID,
+    client_args={
+        "base_url": f"https://bedrock-runtime.{MODEL_REGION}.amazonaws.com/openai/v1",
+        "api_key": provide_token(region=MODEL_REGION),
+    },
+    params={"max_output_tokens": max_tokens, "reasoning": {"effort": "medium"}},
+)
+
+# responses: bedrock-mantle の Responses API
 OpenAIResponsesModel(
     model_id=MODEL_ID,
     bedrock_mantle_config={"region": MODEL_REGION},
@@ -94,9 +104,9 @@ BedrockModel(
 )
 ```
 
-- 現行モデル: `openai.gpt-5.6-luna`（`modelApiMode=responses`）。リージョンは `us-west-2`（`cdk.json` の `modelRegion`）
+- 現行モデル: `us.openai.gpt-6-luna`（`modelApiMode=responses-runtime`、2026-09-24 に `openai.gpt-5.6-luna` / `responses` から切り替え）。リージョンは `us-west-2`（`cdk.json` の `modelRegion`）
 - `max_tokens` は 4096（`summarize_blog()` 内）。Responses 経路では `max_output_tokens` という名前で渡す
-- GPT-5.6 系の推論モデルは `temperature` と `top_p` を受け付けない（HTTP 400 `unsupported_parameter`）。Responses 経路にこれらを追加してはならない
+- GPT-5.6 / GPT-6 系の推論モデルは `temperature` と `top_p` を受け付けない（Responses 経路は HTTP 400 `unsupported_parameter`、Converse 経路は `ValidationException: This model doesn't support the temperature field`）。Responses 経路にこれらを追加してはならない
 - `streaming=False` は Converse 経路で固定。True にするとレスポンスのパースロジックが壊れる
 - Lambda 環境変数 `MODEL_ID` / `MODEL_REGION` / `MODEL_API_MODE` から読み込む（cdk.json の context 値がスタックで注入される）
 - モデルを追加・変更する手順は `.claude/rules/infrastructure-requirements.md` と `DEPLOY_ja.md` を参照する

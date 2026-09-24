@@ -16,15 +16,38 @@
 | キー | 現在値 | 説明 |
 |------|--------|------|
 | `modelRegion` | `us-west-2` | Bedrock 推論リージョン |
-| `modelId` | `openai.gpt-5.6-luna` | 推論モデルの model ID |
-| `modelApiMode` | `responses` | 呼び出し方式 (`converse` / `responses`) |
+| `modelId` | `us.openai.gpt-6-luna` | 推論モデルの model ID |
+| `modelApiMode` | `responses-runtime` | 呼び出し方式 (`converse` / `responses` / `responses-runtime`) |
 | `alertWebhookUrlParameterName` | `/WhatsNew/AlertURL` | アラート通知先の SSM パラメータ名。必須で、未設定だと synth が失敗する |
 
-`modelId` と `modelApiMode` は対応していなければならない。`converse` は `bedrock-runtime` の Converse API、`responses` は `bedrock-mantle` の Responses API を使う。不正な `modelApiMode` は CDK synth 時に、`modelId` との不一致は Lambda 起動時 (`validate_model_config`) に検出される。Responses 経路の model ID は `lambda/notify-to-app/index.py` の `RESPONSES_ONLY_MODEL_IDS` に登録する。
+`modelId` と `modelApiMode` は対応していなければならない。3 経路ある。
 
-`modelId` に `us.` プレフィックスが付く場合はクロスリージョン推論プロファイルを示す。CDK スタックは IAM ポリシー生成時にこのプレフィックスを除去してベースモデル ID を取得する。
+| `modelApiMode` | エンドポイント | 登録先の定数 |
+|---|---|---|
+| `converse` | `bedrock-runtime` の Converse API | （登録不要。既定） |
+| `responses` | `bedrock-mantle` の Responses API | `RESPONSES_ONLY_MODEL_IDS` |
+| `responses-runtime` | `bedrock-runtime` の `/openai/v1` が提供する Responses API | `RUNTIME_RESPONSES_MODEL_IDS` |
 
-`responses` 時はスタックが `bedrock-mantle:CallWithBearerToken` と `bedrock-mantle:CreateInference` を追加で付与し、notify-to-app のタイムアウトを 600 秒へ引き上げる。切り替え手順の詳細は `DEPLOY_ja.md` の「モデルの切り替え手順」を参照する。
+不正な `modelApiMode` は CDK synth 時に、`modelId` との不一致は Lambda 起動時 (`validate_model_config`) に検出される。モデルを追加するときは `lambda/notify-to-app/index.py` の該当する定数に model ID を登録する。
+
+GPT-6 系が `responses-runtime` なのは、`bedrock-mantle` が GPT-6 のうち `openai.gpt-6-astra` しか提供していないため。`bedrock-mantle` のモデル一覧は OpenAI クライアントの `models.list()` で引ける。
+
+`modelId` に `us.` プレフィックスが付く場合はクロスリージョン推論プロファイルを示す。CDK スタックは IAM ポリシー生成時にこのプレフィックスを除去してベースモデル ID を取得する。除去の対象は `us.` / `eu.` / `ap.` で、`global.` は含まれない。`global.` 付きの ID を使うと IAM の ARN が壊れるため、`us.` を選ぶ。
+
+GPT-6 Luna は素の `openai.gpt-6-luna` ではオンデマンド非対応 (`Invocation of model ID ... with on-demand throughput isn't supported`) で、プロファイル ID の指定が必須。
+
+`responses` 時はスタックが `bedrock-mantle:CallWithBearerToken` と `bedrock-mantle:CreateInference` を追加で付与する。`responses-runtime` ではこれらの代わりに `bedrock:InvokeModel` / `bedrock:InvokeModelWithResponseStream` を `project/*` に対しても付与する。
+
+`/openai/v1` に必要な権限は mantle 経路と同じ構造で、名前空間が `bedrock-mantle` ではなく `bedrock` になる。
+
+| アクション | リソース |
+|---|---|
+| `bedrock:CallWithBearerToken` | `*`（リソース指定不可） |
+| `bedrock:InvokeModel` / `bedrock:InvokeModelWithResponseStream` | foundation-model、`inference-profile/*`、`project/*` |
+
+この形は AWS 管理ポリシー `AmazonBedrockLimitedAccess` の定義に合わせてある。2026-09-24 の本番切り替えで、`project/*` の不足と `CallWithBearerToken` の不足が 1 デプロイ違いで 2 回続けて HTTP 401 になった（`is not authorized to perform: bedrock:InvokeModel on resource: ...:project/default`、`is not authorized to perform: bedrock:CallWithBearerToken on resource: *`）。開発者ロールはどちらも既に持つため、ローカルの疎通確認では露見しない。新しい経路を足すときは、実行ロールの権限を管理ポリシーの定義から先に洗い出すこと。ベアラートークン自体は SigV4 の presigned URL をローカルで base64 化したもので API 呼び出しを伴わない。ストリーミングのアクションを含めるのは Strands の Responses クライアントが毎リクエストに `stream: true` を付けるためで、`/openai/v1` がどちらのアクションで認可するかは文書化されていない。タイムアウトは `responses` と `responses-runtime` のどちらでも 600 秒へ引き上げる。切り替え手順の詳細は `DEPLOY_ja.md` の「モデルの切り替え手順」を参照する。
+
+新しいモデルは Bedrock のモデル契約を承諾しないと 404 になる。状態は `aws bedrock get-foundation-model-availability --model-id <id> --region us-west-2 --profile production` の `agreementAvailability` で確認し、`NOT_AVAILABLE` なら `list-foundation-model-agreement-offers` の `offerToken` を `create-foundation-model-agreement` に渡す。承諾後は数分 `PENDING` が続く。
 
 ## SSM パラメータ
 
@@ -62,6 +85,20 @@ Bedrock Marketplace経由のサードパーティモデル(GPT-5.6 Terra等)の�
 
 `UsageQuantity` の単位はサービスによって違う。Marketplace 系 (`USW2-MP:...-Units`) は百万トークン単位だが、`Amazon Bedrock` として課金されるモデル (`USW2-NovaPro-input-tokens` など) は千トークン単位。モデルの単価で換算してサービス全体の Usage と一致するか確かめること。
 
+### モデル切り替えの履歴
+
+日次コストはモデルの切り替え日で不連続になる。集計の区切りに使う。
+
+| 日付 (UTC) | 切り替え | `modelId` | `modelApiMode` | Cost Explorer の SERVICE |
+|---|---|---|---|---|
+| 2026-08-06 | Nova Pro → GPT-5.6 Terra | `openai.gpt-5.6-terra` | `responses` | `OpenAI GPT-5.6 Terra (Amazon Bedrock Edition)` |
+| 2026-09-04 03:51 | Terra → GPT-5.6 Luna | `openai.gpt-5.6-luna` | `responses` | `OpenAI GPT-5.6 Luna (Amazon Bedrock Edition)` |
+| 2026-09-24 04:00 | Luna → GPT-6 Luna | `us.openai.gpt-6-luna` | `responses-runtime` | `OpenAI GPT-6 Luna (Amazon Bedrock Edition)`（推定、初日の課金で要確認） |
+
+切り替え当日は 04:00 から 07:39 UTC まで IAM 不足で全件 401 になり、推論は 1 件も成立していない。GPT-5.6 Luna の課金は 04:00 で止まり、GPT-6 Luna の課金は 07:39 から始まる。この 3 時間 39 分は両方ともゼロなので、日次の比較では 09-24 を除くか、この空白を織り込む。
+
+GPT-6 Luna の list price は GPT-5.6 Luna の半額 (regional standard で input $0.11/M 対 $0.22/M、output $0.55/M 対 $1.32/M)。1 投稿あたりの実費が半分になるとは限らないため、切り替え後に実測する。月をまたぐ集計では両方の SERVICE を入れる。
+
 ### クレジットの扱い
 
 `RECORD_TYPE` を分けずに集計すると Usage と Credit が相殺され、`Amazon Bedrock` サービスが `$0` に見える。使っていないのではなく、全額クレジットで消えている。
@@ -76,7 +113,7 @@ aws ce get-cost-and-usage --time-period Start=<from>,End=<to> --granularity MONT
 
 ### アカウント内の他プロジェクトの費用
 
-production アカウントには当プロジェクト以外の LLM 費用（Claude 各モデル、Cohere Embed）が乗っている。プロジェクト単位で見るには `SERVICE` を `OpenAI GPT-5.6 Luna (Amazon Bedrock Edition)` / `OpenAI GPT-5.6 Terra (Amazon Bedrock Edition)` / `Amazon Bedrock` に絞る。絞らずに「LLM 費用」として報告してはならない。
+production アカウントには当プロジェクト以外の LLM 費用（Claude 各モデル、Cohere Embed）が乗っている。プロジェクト単位で見るには `SERVICE` を `OpenAI GPT-6 Luna (Amazon Bedrock Edition)` / `OpenAI GPT-5.6 Luna (Amazon Bedrock Edition)` / `OpenAI GPT-5.6 Terra (Amazon Bedrock Edition)` / `Amazon Bedrock` に絞る。絞らずに「LLM 費用」として報告してはならない。
 
 ## Lambda タイムアウト設定
 

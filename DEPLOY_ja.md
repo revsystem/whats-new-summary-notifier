@@ -164,31 +164,35 @@ npx cdk destroy --profile your-profile-name
 ## 共通設定
 * `modelRegion`: Amazon Bedrock を利用するリージョン。Amazon Bedrock を利用可能なリージョンの中から、利用したいリージョンのリージョンコードを入力してください。
 * `modelId`: Amazon Bedrock で利用する基盤モデルの model ID。各モデルの model ID はドキュメントを参照ください。
-* `modelApiMode`: モデルの呼び出し方式。`bedrock-runtime` エンドポイントの Converse API で呼び出す `modelId` は `converse`、`bedrock-mantle` エンドポイントの Responses API で呼び出す `modelId` は `responses` を指定します。省略時は `converse` として扱われます。`modelId` と `modelApiMode` が対応していない場合、Lambda 関数は起動時にエラーになります。
+* `modelApiMode`: モデルの呼び出し方式。`bedrock-runtime` エンドポイントの Converse API で呼び出す `modelId` は `converse`、`bedrock-mantle` エンドポイントの Responses API で呼び出す `modelId` は `responses`、`bedrock-runtime` が `/openai/v1` で提供する Responses API で呼び出す `modelId` は `responses-runtime` を指定します。省略時は `converse` として扱われます。`modelId` と `modelApiMode` が対応していない場合、Lambda 関数は起動時にエラーになります。
 
 ### モデルの切り替え手順
 
-下表の `modelId` はいずれも一方の API でしか呼び出せないため、`modelId` を変更したら対応する `modelApiMode` も合わせて確認します（同じ `modelApiMode` の別モデルへ移る場合は `modelId` の変更だけで済みます）。
+下表の `modelId` はいずれか 1 つの経路でしか呼び出せないため、`modelId` を変更したら対応する `modelApiMode` も合わせて確認します（同じ `modelApiMode` の別モデルへ移る場合は `modelId` の変更だけで済みます）。
 
 | モデル | `modelId` | `modelApiMode` |
 | --- | --- | --- |
 | Amazon Nova Pro | `us.amazon.nova-pro-v1:0` | `converse` |
 | OpenAI GPT-5.6 Terra | `openai.gpt-5.6-terra` | `responses` |
 | OpenAI GPT-5.6 Luna | `openai.gpt-5.6-luna` | `responses` |
+| OpenAI GPT-6 Luna | `us.openai.gpt-6-luna` | `responses-runtime` |
 
-GPT-5.6 系のモデルは `bedrock-runtime` の Converse API でも提供されていますが、その場合はクロスリージョン推論プロファイル ID（`us.openai.gpt-5.6-luna` など）の指定が必須で、さらに `project/default` に対する `bedrock:InvokeModel` 権限が必要になります。本スタックはこの権限を付与しないため、上表のとおり素の model ID を `responses` で呼び出します。
+GPT-5.6 系のモデルは `bedrock-runtime` の Converse API でも提供されていますが、その場合はクロスリージョン推論プロファイル ID（`us.openai.gpt-5.6-luna` など）の指定が必須で、さらに `project/default` に対する `bedrock:InvokeModel` 権限が必要になります。本スタックはこの権限を付与しないため、素の model ID を `responses` で呼び出します。
+
+GPT-6 Luna はこのどちらにも乗りません。`bedrock-mantle` は GPT-6 のうち `openai.gpt-6-astra` しか提供しておらず、素の `openai.gpt-6-luna` はオンデマンド非対応のため、`bedrock-runtime` の `us.` 推論プロファイル経由で呼び出します。`global.` ではなく `us.` を使ってください。スタックは IAM の ARN を作るときに `us.` / `eu.` / `ap.` だけを除去するため、`global.` 付きの ID ではどのリソースにも一致しない ARN になります。
 
 1. [cdk.json](cdk.json) の `context` 内で該当する値を変更します。
 2. `npx cdk deploy` でデプロイします。不正な `modelApiMode` は synth 時点で、`modelId` との不一致は Lambda 起動時に検出されるため、片方だけ変更した状態が本番に到達することはありません。
 3. `NotifyNewEntry` の CloudWatch Logs で最初の数件を確認します。
 
-`responses` のモデルへ切り替える場合の注意点は次のとおりです。
+`responses` または `responses-runtime` のモデルへ切り替える場合の注意点は次のとおりです。
 
 * スタックは `responses` のときにのみ `bedrock-mantle:CallWithBearerToken` と `bedrock-mantle:CreateInference` を付与します。両方が必要で、前者だけでは `AccessDeniedException` になります。
-* 推論モデルは記事あたりの所要時間が長いため、`responses` のときは Lambda のタイムアウトを 180 秒から 600 秒に引き上げます。
+* 推論モデルは記事あたりの所要時間が長いため、Responses 系の2つの mode では Lambda のタイムアウトを 180 秒から 600 秒に引き上げます。
+* `responses-runtime` では bedrock-mantle の権限付与は行いませんが、名前空間を `bedrock` に替えた同じ形の権限が必要です。`bedrock:CallWithBearerToken` を `*` に、`bedrock:InvokeModel` と `bedrock:InvokeModelWithResponseStream` をモデル・`inference-profile/*`・`project/*` に付与します。いずれかが欠けると HTTP 401 で不足しているアクションが名指しされます。
 * GPT-5.6 Terra のような推論モデルは `temperature` と `top_p` を受け付けません。指定すると HTTP 400 `unsupported_parameter` になるため、この経路では `max_output_tokens` と推論の effort のみを渡します。
 
-元に戻す場合は、以前の `modelId` と `modelApiMode` の組み合わせに戻して `npx cdk deploy` を実行します。両方の呼び出し経路が関数内に残っているため、コードの変更は不要です。
+元に戻す場合は、以前の `modelId` と `modelApiMode` の組み合わせに戻して `npx cdk deploy` を実行します。3 つの呼び出し経路がいずれも関数内に残っているため、コードの変更は不要です。
 
 ## summarizers
 生成 AI に入力する要約用プロンプトの設定を行います。
