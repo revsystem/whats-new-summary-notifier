@@ -465,7 +465,7 @@ When translating to Japanese, you are REQUIRED to use the following proper nouns
 - Lance Stroll: ランス・ストロール
 - Pierre Gasly: ピエール・ガスリー
 - Franco Colapinto: フランコ・コラピント
-- Esteban Ocon: エスタバン・オコン
+- Esteban Ocon: エステバン・オコン
 - Oliver Bearman: オリバー・ベアマン
 - Nico Hulkenberg: ニコ・ヒュルケンベルグ
 - Gabriel Bortoleto: ガブリエル・ボルトレート
