@@ -83,7 +83,11 @@ OpenAIResponsesModel(
         "base_url": f"https://bedrock-runtime.{MODEL_REGION}.amazonaws.com/openai/v1",
         "api_key": provide_token(region=MODEL_REGION),
     },
-    params={"max_output_tokens": max_tokens, "reasoning": {"effort": "medium"}},
+    params={
+        "max_output_tokens": max_tokens,
+        "reasoning": {"effort": "medium"},
+        "extra_body": {"prompt_cache_options": {"mode": "explicit"}},
+    },
 )
 
 # responses: bedrock-mantle の Responses API
@@ -107,6 +111,7 @@ BedrockModel(
 - 現行モデル: `us.openai.gpt-6-luna`（`modelApiMode=responses-runtime`、2026-09-24 に `openai.gpt-5.6-luna` / `responses` から切り替え）。リージョンは `us-west-2`（`cdk.json` の `modelRegion`）
 - `max_tokens` は 4096（`summarize_blog()` 内）。Responses 経路では `max_output_tokens` という名前で渡す
 - GPT-5.6 / GPT-6 系の推論モデルは `temperature` と `top_p` を受け付けない（Responses 経路は HTTP 400 `unsupported_parameter`、Converse 経路は `ValidationException: This model doesn't support the temperature field`）。Responses 経路にこれらを追加してはならない
+- `responses-runtime` 経路はプロンプトキャッシュを明示モードにし、区切り（ブレークポイント）を置かない。既定の暗黙モードでは記事本文まで含むプロンプト全体が入力単価の 1.25 倍で書き込まれるのに、次の記事とは一致せず読まれないため (#59)。ブレークポイントを追加すると書き込み課金が復活する
 - `streaming=False` は Converse 経路で固定。True にするとレスポンスのパースロジックが壊れる
 - Lambda 環境変数 `MODEL_ID` / `MODEL_REGION` / `MODEL_API_MODE` から読み込む（cdk.json の context 値がスタックで注入される）
 - モデルを追加・変更する手順は `.claude/rules/infrastructure-requirements.md` と `DEPLOY_ja.md` を参照する
