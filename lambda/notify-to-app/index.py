@@ -122,6 +122,11 @@ def build_model(max_tokens):
             params={
                 "max_output_tokens": max_tokens,
                 "reasoning": {"effort": "medium"},
+                # The implicit default writes the whole prompt, article
+                # included, to the cache at 1.25x the input rate, and the next
+                # article never reads it back. Explicit mode with no
+                # breakpoints writes nothing.
+                "extra_body": {"prompt_cache_options": {"mode": "explicit"}},
             },
         )
 
