@@ -568,6 +568,23 @@ class TestBuildModel:
         assert captured["params"]["max_output_tokens"] == 4096
         assert "bedrock_mantle_config" not in captured
 
+    def test_runtime_responses_writes_nothing_to_the_prompt_cache(self, monkeypatch):
+        # Without breakpoints, explicit mode skips the cache write the implicit
+        # default bills at 1.25x the input rate for a prompt never read back.
+        monkeypatch.setattr(index, "MODEL_API_MODE", "responses-runtime")
+        monkeypatch.setattr(index, "provide_token", lambda region: "token")
+        captured = {}
+
+        def fake_model(**kwargs):
+            captured.update(kwargs)
+            return "model"
+
+        monkeypatch.setattr(index, "OpenAIResponsesModel", fake_model)
+        index.build_model(4096)
+        assert captured["params"]["extra_body"] == {
+            "prompt_cache_options": {"mode": "explicit"}
+        }
+
     def test_mantle_responses_still_uses_the_mantle_endpoint(self, monkeypatch):
         monkeypatch.setattr(index, "MODEL_API_MODE", "responses")
         monkeypatch.setattr(index, "MODEL_ID", "openai.gpt-5.6-luna")
